@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QWR Companion Analysis — Humbl AI Integration Plan</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+  :root {
+    --bg:#08080d;--surface:#10101a;--surface2:#18182a;--surface3:#20203a;--border:#2a2a40;
+    --text:#e8e8f0;--text-dim:#8888a0;--text-faint:#55556a;
+    --cyan:#00d4aa;--blue:#4a9eff;--purple:#a855f7;--orange:#ff8a4a;
+    --red:#ff4a6a;--yellow:#ffd24a;--green:#4aff8a;--pink:#ff6eb4;
+    --teal:#2dd4bf;--indigo:#818cf8;--rose:#fb7185;--lime:#a3e635;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;line-height:1.6}
+  .container{max-width:1200px;margin:0 auto;padding:32px 20px 80px}
+  code{font-family:'JetBrains Mono',monospace;font-size:13px;background:rgba(74,158,255,.08);padding:2px 6px;border-radius:4px}
+  .header{text-align:center;margin-bottom:32px}
+  .header h1{font-size:clamp(28px,4vw,44px);font-weight:800;background:linear-gradient(135deg,var(--text),var(--orange),var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.2;margin-bottom:8px}
+  .header p{color:var(--text-dim);font-size:17px;max-width:700px;margin:0 auto}
+  .sl{font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:3px;text-transform:uppercase;color:var(--text-dim);margin:28px 0 14px;display:flex;align-items:center;gap:10px}
+  .sl::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+  .card{background:var(--surface);border-radius:14px;padding:18px;margin-bottom:14px}
+  .card-title{font-weight:700;font-size:17px;margin-bottom:8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 8px;border-radius:12px;display:inline-block;margin:2px}
+  .tag-green{background:rgba(74,255,138,.1);color:var(--green);border:1px solid rgba(74,255,138,.25)}
+  .tag-red{background:rgba(255,74,106,.1);color:var(--red);border:1px solid rgba(255,74,106,.25)}
+  .tag-yellow{background:rgba(255,210,74,.1);color:var(--yellow);border:1px solid rgba(255,210,74,.25)}
+  .tag-blue{background:rgba(74,158,255,.1);color:var(--blue);border:1px solid rgba(74,158,255,.25)}
+  .tag-purple{background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.25)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px}
+  th{text-align:left;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--yellow);letter-spacing:.5px;border-bottom:2px solid var(--border)}
+  td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.04)}
+  tr:hover{background:rgba(255,255,255,.02)}
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;font-family:'JetBrains Mono',monospace;font-size:13px}
+  .flow-node{padding:6px 12px;border-radius:8px;font-weight:600}
+  .flow-arrow{color:var(--text-faint);font-size:16px}
+  .nav{position:sticky;top:0;z-index:100;background:rgba(8,8,13,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:0 -20px 20px}
+  .nav a{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-dim);text-decoration:none;letter-spacing:.5px;padding:4px 8px;border-radius:6px;transition:all .2s}
+  .nav a:hover{color:var(--cyan);background:rgba(0,212,170,.08)}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .compare>div{padding:16px;border-radius:12px}
+  .compare .left{background:rgba(255,138,74,.04);border:1px solid rgba(255,138,74,.2)}
+  .compare .right{background:rgba(74,158,255,.04);border:1px solid rgba(74,158,255,.2)}
+  @media(max-width:768px){.compare{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="nav">
+    <a href="#current">Current State</a>
+    <a href="#connectors">Connectors</a>
+    <a href="#duplicated">Duplicated</a>
+    <a href="#arch-diff">Architecture Diff</a>
+    <a href="#gaps">Gaps</a>
+    <a href="#target">Target Role</a>
+    <a href="#integration">Integration Plan</a>
+  </div>
+
+  <div class="header">
+    <h1>QWR Companion &harr; Humbl Core</h1>
+    <p>Analysis of what qwr_companion does today, what overlaps with humbl_core, and what needs to change to make qwr_companion the brain + UI while humbl_core provides the tool &amp; pipeline engine.</p>
+    <div style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:13px;padding:4px 14px;border-radius:20px;background:rgba(255,138,74,.08);border:1px solid rgba(255,138,74,.25);color:var(--orange);display:inline-block">MARCH 2026 &middot; PRE-INTEGRATION AUDIT</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: CURRENT STATE -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <div id="current">
+    <div class="sl" style="color:var(--orange)">1 &mdash; What QWR Companion Does Today</div>
+
+    <div class="card" style="border:1px solid rgba(255,138,74,.2)">
+      <div class="card-title" style="color:var(--orange)">Overview</div>
+      <p style="color:var(--text-dim);margin-bottom:12px">QWR Companion is a <strong style="color:var(--text)">production companion app</strong> for smart glasses (DPVR G1 + Mentra Live). It is Android-primary with iOS support. Package name: <code>g1_glasses_app</code>. It has real Supabase auth, real BLE device connections, real voice processing, and ships to users.</p>
+    </div>
+
+    <div class="grid">
+      <!-- Voice Intent Pipeline -->
+      <div class="card" style="border:1px solid rgba(0,212,170,.2)">
+        <div class="card-title" style="color:var(--cyan)">Voice Intent Pipeline</div>
+        <div class="flow">
+          <span class="flow-node" style="background:rgba(168,85,247,.15);color:var(--purple)">Activation</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-node" style="background:rgba(0,212,170,.15);color:var(--cyan)">Audio Capture</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-node" style="background:rgba(74,158,255,.15);color:var(--blue)">STT (Whisper)</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-node" style="background:rgba(255,210,74,.15);color:var(--yellow)">Intent</span>
+          <span class="flow-arrow">&rarr;</span>
+          <span class="flow-node" style="background:rgba(74,255,138,.15);color:var(--green)">Execute</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-dim);margin-top:8px">
+          <div><strong style="color:var(--text)">Activation:</strong> Button press, wake word (Porcupine/Picovoice, placeholder), continuous listening (VOSK)</div>
+          <div><strong style="color:var(--text)">Audio:</strong> Phone mic or glasses mic (BLE audio stream)</div>
+          <div><strong style="color:var(--text)">STT:</strong> <code>whisper_flutter_new</code> (on-device Whisper.cpp, tiny/base/small models)</div>
+          <div><strong style="color:var(--text)">Intent:</strong> Offline regex engine (IntentRegistry, ~30 intents) + online AI (Gemini/OpenAI)</div>
+          <div><strong style="color:var(--text)">Execution:</strong> CommandExecutor &rarr; CommandExecutorDelegate (AppStateProvider)</div>
+          <div><strong style="color:var(--text)">TTS:</strong> <code>flutter_tts</code> (system TTS) for spoken responses</div>
+        </div>
+      </div>
+
+      <!-- Glasses Hardware -->
+      <div class="card" style="border:1px solid rgba(168,85,247,.2)">
+        <div class="card-title" style="color:var(--purple)">Glasses Hardware Integration</div>
+        <div style="font-size:13px;color:var(--text-dim)">
+          <div><strong style="color:var(--text)">DPVR G1 (HUMBL):</strong> Native Android SDK via MethodChannel. Text/image display, WiFi P2P media sync, firmware info. No camera/mic on glasses.</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">Mentra Live (XY):</strong> BLE + K900/BES2700 binary protocol. Camera, mic, speaker, LED, live streaming. LC3 audio codec (native CMake). Buffer recording.</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">Connection Manager:</strong> BLE scan &rarr; device type identification &rarr; adapter factory (DpvrG1Adapter / MentraLiveAdapter)</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">Abstract Interface:</strong> <code>GlassesDevice</code> &mdash; connect, disconnect, displayText, capturePhoto, startVideo, getBattery, speak</div>
+        </div>
+      </div>
+
+      <!-- AI Services -->
+      <div class="card" style="border:1px solid rgba(74,158,255,.2)">
+        <div class="card-title" style="color:var(--blue)">AI / Cloud Services</div>
+        <div style="font-size:13px;color:var(--text-dim)">
+          <div><strong style="color:var(--text)">Gemini AI:</strong> <code>google_generative_ai</code> (gemini-2.0-flash-exp). Image analysis, text generation. 30-word limit for TTS.</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">Gemini Live:</strong> Bidirectional WebSocket streaming. Audio/video I/O, transcriptions, tool calls. Session management.</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">OpenAI Realtime:</strong> WebRTC full-duplex voice (gpt-4o-mini-realtime). Built-in echo cancellation. Data channel for events.</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">AI Intent Providers:</strong> Gemini + OpenAI as pluggable intent processors via AIProviderManager.</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">ML Kit:</strong> Translation (<code>google_mlkit_translation</code>), barcode scanning (<code>google_mlkit_barcode_scanning</code>).</div>
+        </div>
+      </div>
+
+      <!-- Auth & Backend -->
+      <div class="card" style="border:1px solid rgba(129,140,248,.2)">
+        <div class="card-title" style="color:var(--indigo)">Auth &amp; Backend</div>
+        <div style="font-size:13px;color:var(--text-dim)">
+          <div><strong style="color:var(--text)">Supabase:</strong> <code>supabase_flutter</code> &mdash; Auth (PKCE), Google Sign-In, Apple Sign-In, email/password. Real production keys.</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">Secure Storage:</strong> <code>flutter_secure_storage</code> for API keys, user ID, tokens.</div>
+          <div style="margin-top:4px"><strong style="color:var(--text)">App Config:</strong> Singleton with feature flags, Supabase/Spotify/Picovoice keys.</div>
+        </div>
+      </div>
+
+      <!-- App Connectors -->
+      <div class="card" style="border:1px solid rgba(163,230,53,.2)">
+        <div class="card-title" style="color:var(--lime)">App Connectors <span class="tag tag-yellow" style="margin-left:8px">MOVING &rarr; CORE</span></div>
+        <div style="font-size:13px;color:var(--text-dim)">
+          <div><strong style="color:var(--text)">Contacts:</strong> <code>flutter_contacts</code> &mdash; search and call contacts by name <span class="tag tag-green">Platform</span></div>
+          <div><strong style="color:var(--text)">Phone:</strong> Make calls, handle incoming calls with TTS announcement <span class="tag tag-green">Platform</span></div>
+          <div><strong style="color:var(--text)">Music:</strong> Apple Music + Spotify services, play/pause/next/prev/volume <span class="tag tag-purple">Hybrid</span></div>
+          <div><strong style="color:var(--text)">Notifications:</strong> Relay phone notifications to glasses display <span class="tag tag-green">Platform</span></div>
+          <div><strong style="color:var(--text)">Social Share:</strong> <code>share_plus</code> for native share sheet <span class="tag tag-green">Platform</span></div>
+          <div style="margin-top:6px;color:var(--yellow);font-size:12px">See Section 1B for detailed platform vs 3rd-party categorization</div>
+        </div>
+      </div>
+
+      <!-- UI Screens -->
+      <div class="card" style="border:1px solid rgba(251,113,133,.2)">
+        <div class="card-title" style="color:var(--rose)">UI Screens (~35 screens)</div>
+        <div style="font-size:13px;color:var(--text-dim)">
+          <div><strong style="color:var(--text)">Main:</strong> 5-tab IndexedStack (Home, Gallery, AI, Store, Profile)</div>
+          <div><strong style="color:var(--text)">Auth:</strong> Login, Signup, Forgot Password, Splash, Onboarding</div>
+          <div><strong style="color:var(--text)">AI:</strong> ChatScreen (OpenAI Realtime voice), AI Tab, AI Vision, Gemini Live, Local Preview</div>
+          <div><strong style="color:var(--text)">Media:</strong> Gallery, Image Viewer, Video Player, Audio Player, Streaming</div>
+          <div><strong style="color:var(--text)">Settings:</strong> API Keys, Voice Intent Settings, Notifications, Privacy, Terms, Device Info</div>
+          <div><strong style="color:var(--text)">Device:</strong> Glasses Pairing, QR Scanner, Translation, Connected Apps, Guide</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- File Inventory -->
+    <div class="card" style="border:1px solid var(--border)">
+      <div class="card-title">File Count Summary</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:13px">
+        <div><span style="color:var(--orange);font-weight:600">~95</span> <span style="color:var(--text-dim)">Dart source files</span></div>
+        <div><span style="color:var(--purple);font-weight:600">~35</span> <span style="color:var(--text-dim)">screens</span></div>
+        <div><span style="color:var(--cyan);font-weight:600">~30</span> <span style="color:var(--text-dim)">services</span></div>
+        <div><span style="color:var(--blue);font-weight:600">~20</span> <span style="color:var(--text-dim)">voice intent files</span></div>
+        <div><span style="color:var(--green);font-weight:600">4</span> <span style="color:var(--text-dim)">test files</span></div>
+        <div><span style="color:var(--yellow);font-weight:600">42</span> <span style="color:var(--text-dim)">dependencies</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1B: CONNECTOR DEEP-DIVE -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <div id="connectors">
+    <div class="sl" style="color:var(--lime)">1B &mdash; Connectors &amp; Tools: Same Thing, Different Wrapper</div>
+
+    <div class="card" style="border:1px solid rgba(163,230,53,.2)">
+      <div class="card-title" style="color:var(--lime)">Key Insight: Connectors ARE Tools</div>
+      <p style="color:var(--text-dim);margin-bottom:12px">QWR&rsquo;s &ldquo;connectors&rdquo; and humbl_core&rsquo;s &ldquo;tools&rdquo; do the <strong style="color:var(--text)">same thing</strong> &mdash; execute actions against external services or hardware. The only difference is the wrapper around them:</p>
+      <table>
+        <thead>
+          <tr><th></th><th>QWR Connectors</th><th>Core Tools</th></tr>
+        </thead>
+        <tbody>
+          <tr><td style="font-weight:600;color:var(--text)">Discovery</td><td style="color:var(--text-dim)">Hardcoded in CommandExecutor switch/case</td><td style="color:var(--text-dim)">LLM-discoverable via MCP schema + JSON Schema</td></tr>
+          <tr><td style="font-weight:600;color:var(--text)">Security</td><td style="color:var(--text-dim)">None &mdash; any code can call any connector</td><td style="color:var(--text-dim)">3-gate (access level + permission state + resource lease)</td></tr>
+          <tr><td style="font-weight:600;color:var(--text)">Invocation</td><td style="color:var(--text-dim)"><code>executor.execute(intent)</code> directly</td><td style="color:var(--text-dim)">Pipeline &rarr; ExecuteToolNode &rarr; ToolRegistry</td></tr>
+          <tr><td style="font-weight:600;color:var(--text)">Schema</td><td style="color:var(--text-dim)">No formal schema, ad-hoc parameters</td><td style="color:var(--text-dim)">JSON inputSchema / outputSchema per tool</td></tr>
+          <tr><td style="font-weight:600;color:var(--text)">Tier Gating</td><td style="color:var(--text-dim)">No tier control</td><td style="color:var(--text-dim)">Free / Standard / Plus / Ultimate per tool</td></tr>
+          <tr><td style="font-weight:600;color:var(--text)">State</td><td style="color:var(--text-dim)">isEnabled / isAvailable / hasPermission</td><td style="color:var(--text-dim)">ToolState (ready / initializing / notSupported / permissionNotGranted)</td></tr>
+        </tbody>
+      </table>
+      <p style="color:var(--text-dim);margin-top:12px"><strong style="color:var(--yellow)">Migration approach:</strong> Connector implementation code moves into humbl_core as proper platform interfaces + tool implementations. QWR companion then consumes them from humbl_core like any other tool. The connectors don&rsquo;t disappear &mdash; they get promoted to first-class tools with MCP discoverability, security gates, and tier control.</p>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(0,212,170,.2)">
+      <div class="card-title" style="color:var(--cyan)">Platform / Device Connectors (Native OS APIs)</div>
+      <p style="color:var(--text-dim);margin-bottom:10px">These interact with the <strong style="color:var(--text)">operating system or device hardware</strong> via MethodChannel, native SDKs, or Flutter plugins. They belong in humbl_core&rsquo;s <code>platform/</code> layer as proper <code>I*Manager</code> interfaces with native implementations.</p>
+      <table>
+        <thead><tr><th>QWR Connector</th><th>Platform API</th><th>Core Interface</th><th>Core Tools That Use It</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">ContactsService</td>
+            <td style="color:var(--text-dim)"><code>flutter_contacts</code> (OS contacts DB)</td>
+            <td style="color:var(--cyan)">New: <code>IContactsProvider</code></td>
+            <td style="color:var(--text-dim)"><code>call_make</code> (contact resolution)</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">PhoneService</td>
+            <td style="color:var(--text-dim)"><code>TelephonyManager</code> (Android) / <code>CallKit</code> (iOS)</td>
+            <td style="color:var(--cyan)">New: <code>IPhoneProvider</code></td>
+            <td style="color:var(--text-dim)"><code>call_make</code>, <code>call_answer</code>, <code>emergency</code></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">NotificationRelayService</td>
+            <td style="color:var(--text-dim)"><code>NotificationListenerService</code> (Android)</td>
+            <td style="color:var(--cyan)">New: <code>INotificationProvider</code></td>
+            <td style="color:var(--text-dim)"><code>read_msg</code></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">AppleMusicService</td>
+            <td style="color:var(--text-dim)"><code>MusicKit</code> (iOS native framework)</td>
+            <td style="color:var(--text-dim)">Existing: <code>IMediaManager</code></td>
+            <td style="color:var(--text-dim)"><code>media_play</code>, <code>media_pause</code>, <code>next_prev</code></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">SocialShareService</td>
+            <td style="color:var(--text-dim)"><code>share_plus</code> (OS share sheet)</td>
+            <td style="color:var(--text-dim)">Existing: <code>IMediaManager.share()</code></td>
+            <td style="color:var(--text-dim)"><code>share</code></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">MusicControlService</td>
+            <td style="color:var(--text-dim)"><code>MediaSession</code> / <code>MPRemoteCommandCenter</code></td>
+            <td style="color:var(--text-dim)">Existing: <code>IMediaManager</code></td>
+            <td style="color:var(--text-dim)"><code>media_play</code>, <code>media_pause</code>, <code>next_prev</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(168,85,247,.2)">
+      <div class="card-title" style="color:var(--purple)">3rd Party API Connectors (External Services)</div>
+      <p style="color:var(--text-dim);margin-bottom:10px">These talk to <strong style="color:var(--text)">external company APIs</strong> over network. They belong in humbl_core&rsquo;s <code>tools/connectors/</code> or as registered plugins with their own lifecycle, auth, and rate limiting.</p>
+      <table>
+        <thead><tr><th>QWR Connector</th><th>External API</th><th>Core Interface</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">SpotifyService</td>
+            <td style="color:var(--text-dim)">Spotify App Remote SDK</td>
+            <td style="color:var(--purple)">Existing: <code>IMediaManager</code> or dedicated <code>ISpotifyProvider</code></td>
+            <td style="color:var(--text-dim)">MethodChannel to native SDK, needs clientId + auth. Android &amp; iOS.</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">GeminiAIService</td>
+            <td style="color:var(--text-dim)">Google Generative AI API</td>
+            <td style="color:var(--purple)"><code>ICloudGateway</code> (pipeline)</td>
+            <td style="color:var(--text-dim)">Image analysis, text gen. Needs API key (BYOK).</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">Gemini Live</td>
+            <td style="color:var(--text-dim)">Gemini Live WebSocket API</td>
+            <td style="color:var(--purple)"><code>ICloudGateway</code> (pipeline)</td>
+            <td style="color:var(--text-dim)">Bidirectional audio/video streaming. Session management.</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">OpenAIRealtimeService</td>
+            <td style="color:var(--text-dim)">OpenAI Realtime WebRTC API</td>
+            <td style="color:var(--purple)"><code>ICloudGateway</code> (pipeline)</td>
+            <td style="color:var(--text-dim)">Full-duplex voice. gpt-4o-mini-realtime-preview. BYOK.</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">MentraCloudService</td>
+            <td style="color:var(--text-dim)">Mentra Cloud API</td>
+            <td style="color:var(--purple)">New: cloud connector tool</td>
+            <td style="color:var(--text-dim)">Device cloud features. May not be needed long-term.</td>
+          </tr>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">OmiBackendClient</td>
+            <td style="color:var(--text-dim)">Omi / Friend API</td>
+            <td style="color:var(--purple)">New: cloud connector tool</td>
+            <td style="color:var(--text-dim)">Plugin marketplace, companion AI. Evaluating.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(255,210,74,.2)">
+      <div class="card-title" style="color:var(--yellow)">Hybrid Connector (Platform + 3rd Party)</div>
+      <table>
+        <thead><tr><th>QWR Connector</th><th>How It Works</th><th>Core Interface</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;color:var(--text)">MusicConnectorFacade</td>
+            <td style="color:var(--text-dim)">Routes to Spotify (3rd party SDK) or Apple Music (iOS native) or system MediaSession. Priority: Spotify &gt; Apple Music &gt; System.</td>
+            <td style="color:var(--text-dim)">Implements <code>IMediaManager</code> &mdash; the facade IS the adapter.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(255,74,106,.15);background:rgba(255,74,106,.02)">
+      <div class="card-title" style="color:var(--red)">Migration Path Summary</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+        <div><strong style="color:var(--cyan)">Platform connectors</strong> &rarr; Move implementation into humbl_core under <code>platform/</code> with proper <code>I*Manager</code> interfaces + native Kotlin/Swift. Tools in <code>tools/domains/</code> consume them.</div>
+        <div><strong style="color:var(--purple)">3rd party connectors</strong> &rarr; Move into humbl_core as <code>tools/connectors/</code> with their own lifecycle, auth, and API key management. Register as tools with cloud dependency.</div>
+        <div><strong style="color:var(--yellow)">Hybrid connectors</strong> &rarr; Implement core&rsquo;s <code>IMediaManager</code> interface, routing internally to the best available music source.</div>
+        <div style="margin-top:8px"><strong style="color:var(--green)">QWR companion</strong> &rarr; Initializes everything at startup, provides API keys and user context, consumes tools from humbl_core. No longer owns connector logic directly.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: DUPLICATED FUNCTIONALITY -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <div id="duplicated">
+    <div class="sl" style="color:var(--red)">2 &mdash; What Is Duplicated</div>
+
+    <div class="card" style="border:1px solid rgba(255,74,106,.2)">
+      <div class="card-title" style="color:var(--red)">Overlapping Systems Between qwr_companion &amp; humbl_core</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Feature Area</th>
+            <th>qwr_companion</th>
+            <th>humbl_core</th>
+            <th>Verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--text);font-weight:600">Glasses Device Abstraction</td>
+            <td style="color:var(--text-dim)"><code>GlassesDevice</code> interface + <code>GlassesCapabilities</code> + <code>GlassesConnectionManager</code> + 2 adapters</td>
+            <td style="color:var(--text-dim)"><code>IPeripheralProvider</code> + <code>IConnectedDevice</code> + <code>PeripheralCapabilities</code> + <code>DeviceRegistry</code> + 4 providers</td>
+            <td><span class="tag tag-red">DUPLICATED</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text);font-weight:600">Intent / Command Registry</td>
+            <td style="color:var(--text-dim)"><code>IntentRegistry</code> with ~30 IntentDefinitions (phrase + regex matching)</td>
+            <td style="color:var(--text-dim)"><code>ToolRegistry</code> with 81 HumblTools (MCP schema, JSON Schema, 7 domains)</td>
+            <td><span class="tag tag-red">DUPLICATED</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text);font-weight:600">Command Execution</td>
+            <td style="color:var(--text-dim)"><code>CommandExecutor</code> &rarr; <code>CommandExecutorDelegate</code> switch/case dispatcher</td>
+            <td style="color:var(--text-dim)"><code>ExecuteToolNode</code> &rarr; <code>ToolRegistry.execute()</code> with access control gates</td>
+            <td><span class="tag tag-red">DUPLICATED</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text);font-weight:600">Intent Classification</td>
+            <td style="color:var(--text-dim)"><code>OfflineIntentEngine</code> (regex) + <code>AIProviderManager</code> (Gemini/OpenAI cloud)</td>
+            <td style="color:var(--text-dim)"><code>ClassifyNode</code> &rarr; <code>IIntentProcessor</code> (on-device SLM via llama.cpp)</td>
+            <td><span class="tag tag-yellow">OVERLAP</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text);font-weight:600">TTS</td>
+            <td style="color:var(--text-dim)"><code>TTSService</code> wrapping <code>flutter_tts</code> (system TTS)</td>
+            <td style="color:var(--text-dim)">Spec requires 4-tier TTS (earcon &rarr; template &rarr; Piper &rarr; system). Not implemented.</td>
+            <td><span class="tag tag-yellow">KEEP QWR</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text);font-weight:600">Earcons</td>
+            <td style="color:var(--text-dim)"><code>EarconService</code> &mdash; pre-recorded sound effects (click, success, error)</td>
+            <td style="color:var(--text-dim)">Spec describes earcons as TTS tier 1. Not implemented.</td>
+            <td><span class="tag tag-yellow">KEEP QWR</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text);font-weight:600">Camera / Media</td>
+            <td style="color:var(--text-dim)">Direct glasses SDK calls for photo/video via <code>GlassesDevice</code></td>
+            <td style="color:var(--text-dim)"><code>ICameraManager</code> + <code>IMediaManager</code> interfaces with native plugins</td>
+            <td><span class="tag tag-yellow">OVERLAP</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text);font-weight:600">App Connectors / Tools</td>
+            <td style="color:var(--text-dim)"><code>AppConnectorManager</code> + 6 connector services (Contacts, Phone, Spotify, Apple Music, Social Share, Notifications)</td>
+            <td style="color:var(--text-dim)">81 <code>HumblTool</code> stubs with <code>throw UnimplementedError</code> &mdash; same actions, no backing implementation</td>
+            <td><span class="tag tag-red">DUPLICATED</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--text);font-weight:600">Permissions</td>
+            <td style="color:var(--text-dim)"><code>permission_handler</code> direct calls scattered in services</td>
+            <td style="color:var(--text-dim)"><code>IPermissionService</code> + <code>ToolStateManager</code> + centralized permission probing</td>
+            <td><span class="tag tag-yellow">OVERLAP</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: ARCHITECTURAL DIFFERENCES -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <div id="arch-diff">
+    <div class="sl" style="color:var(--purple)">3 &mdash; Architectural Differences</div>
+
+    <div class="compare">
+      <div class="left">
+        <div style="font-weight:700;font-size:17px;color:var(--orange);margin-bottom:10px">qwr_companion</div>
+        <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+          <div><span class="tag tag-yellow">PATTERN</span> MVVM + Provider state management</div>
+          <div><span class="tag tag-yellow">ROUTING</span> Regex phrase matching + cloud AI fallback</div>
+          <div><span class="tag tag-yellow">EXECUTION</span> Switch/case dispatcher, no access control</div>
+          <div><span class="tag tag-yellow">PIPELINE</span> Linear: activation &rarr; capture &rarr; STT &rarr; intent &rarr; execute</div>
+          <div><span class="tag tag-yellow">AI</span> Cloud-first (Gemini/OpenAI API calls)</div>
+          <div><span class="tag tag-yellow">STT</span> whisper_flutter_new (Flutter plugin, auto model download)</div>
+          <div><span class="tag tag-yellow">DEVICES</span> Direct BLE + MethodChannel, 2 real device adapters</div>
+          <div><span class="tag tag-yellow">AUTH</span> Real Supabase auth, Google/Apple sign-in</div>
+          <div><span class="tag tag-yellow">STATE</span> Mutable ChangeNotifier (AppStateProvider)</div>
+          <div><span class="tag tag-yellow">SECURITY</span> None &mdash; any command can execute anything</div>
+          <div><span class="tag tag-yellow">TOOLS</span> ~30 hardcoded intents with phrase/regex matching</div>
+          <div><span class="tag tag-yellow">CLOUD</span> Direct Gemini/OpenAI API calls, real WebSocket/WebRTC</div>
+        </div>
+      </div>
+      <div class="right">
+        <div style="font-weight:700;font-size:17px;color:var(--blue);margin-bottom:10px">humbl_core + humbl_lm</div>
+        <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+          <div><span class="tag tag-blue">PATTERN</span> Immutable state + StateGraph (LangGraph clone)</div>
+          <div><span class="tag tag-blue">ROUTING</span> On-device SLM (Qwen3-0.6B) structured JSON output</div>
+          <div><span class="tag tag-blue">EXECUTION</span> 3-gate access control (caller/state/resource)</div>
+          <div><span class="tag tag-blue">PIPELINE</span> Graph: 8 nodes, conditional edges, loops, streaming</div>
+          <div><span class="tag tag-blue">AI</span> Edge-first (60-80% local SLM, cloud fallback)</div>
+          <div><span class="tag tag-blue">STT</span> Not implemented (spec: whisper.cpp FFI + Moonshine)</div>
+          <div><span class="tag tag-blue">DEVICES</span> Abstract providers + capability matching, simulated only</div>
+          <div><span class="tag tag-blue">AUTH</span> Not implemented (spec: Supabase)</div>
+          <div><span class="tag tag-blue">STATE</span> Immutable PipelineState with copyWith + _absent sentinel</div>
+          <div><span class="tag tag-blue">SECURITY</span> 6-level AccessLevel, @nonVirtual capping, 3-gate model</div>
+          <div><span class="tag tag-blue">TOOLS</span> 81 MCP-compatible tools, JSON Schema, 7 domains, priority tiers</div>
+          <div><span class="tag tag-blue">CLOUD</span> ICloudGateway interface only, no implementation</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(168,85,247,.2);margin-top:14px">
+      <div class="card-title" style="color:var(--purple)">Key Architectural Tensions</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+        <div><strong style="color:var(--red)">1. Intent System:</strong> QWR uses phrase/regex matching (~30 intents). Core uses MCP tools with structured JSON Schema (81 tools). These CANNOT coexist &mdash; core&rsquo;s system is strictly superior. QWR&rsquo;s IntentRegistry must be replaced by humbl_core ToolRegistry.</div>
+        <div><strong style="color:var(--red)">2. Pipeline Model:</strong> QWR is a linear pipe (audio &rarr; text &rarr; intent &rarr; action). Core is a graph with loops, conditional routing, multi-step execution, and cloud escalation. QWR&rsquo;s VoiceIntentPipeline becomes a <em>frontend</em> to core&rsquo;s StateGraph.</div>
+        <div><strong style="color:var(--red)">3. State Management:</strong> QWR uses mutable ChangeNotifier. Core uses immutable copyWith. QWR can keep Provider for UI state, but pipeline state must flow through PipelineState.</div>
+        <div><strong style="color:var(--orange)">4. Device Abstraction:</strong> Both have glasses abstraction layers. Core&rsquo;s is more general (IPeripheralProvider + capabilities). QWR&rsquo;s has real BLE working code. Need to merge: QWR adapters implement core&rsquo;s interfaces.</div>
+        <div><strong style="color:var(--green)">5. Cloud AI:</strong> QWR has working cloud AI (Gemini, OpenAI, WebRTC). Core has none. QWR&rsquo;s services become the <code>ICloudGateway</code> implementation.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: GAPS -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <div id="gaps">
+    <div class="sl" style="color:var(--yellow)">4 &mdash; Gaps Between Core and Companion</div>
+
+    <div class="card" style="border:1px solid rgba(255,210,74,.2)">
+      <div class="card-title" style="color:var(--yellow)">What QWR Has That Core Lacks</div>
+      <table>
+        <thead><tr><th>Feature</th><th>QWR Implementation</th><th>Core Status</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600">Supabase Auth</td><td style="color:var(--text-dim)">Full: Google, Apple, email/password, PKCE</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Whisper STT</td><td style="color:var(--text-dim)"><code>whisper_flutter_new</code>, on-device, 3 model sizes</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Wake Word Detection</td><td style="color:var(--text-dim)">Porcupine/Picovoice (placeholder, architecture ready)</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">System TTS</td><td style="color:var(--text-dim)"><code>flutter_tts</code>, working</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Earcon Sounds</td><td style="color:var(--text-dim)"><code>EarconService</code>, pre-recorded clips</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Cloud AI (Gemini)</td><td style="color:var(--text-dim)">Image analysis, text gen, live streaming</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Cloud AI (OpenAI)</td><td style="color:var(--text-dim)">Realtime WebRTC voice, full-duplex</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Real BLE Glasses</td><td style="color:var(--text-dim)">2 working device adapters (DPVR G1, Mentra Live)</td><td><span class="tag tag-yellow">STUBS</span></td></tr>
+          <tr><td style="font-weight:600">App Connectors</td><td style="color:var(--text-dim)">Contacts, Phone, Spotify, Apple Music, Notifications &mdash; 6 real services with platform APIs</td><td><span class="tag tag-yellow">MIGRATING &rarr; CORE</span></td></tr>
+          <tr><td style="font-weight:600">QR/Barcode Scanner</td><td style="color:var(--text-dim)"><code>google_mlkit_barcode_scanning</code></td><td><span class="tag tag-yellow">STUB TOOL</span></td></tr>
+          <tr><td style="font-weight:600">Translation</td><td style="color:var(--text-dim)"><code>google_mlkit_translation</code></td><td><span class="tag tag-yellow">STUB TOOL</span></td></tr>
+          <tr><td style="font-weight:600">Production UI</td><td style="color:var(--text-dim)">35 screens, onboarding, settings, theming</td><td><span class="tag tag-red">DEV UI ONLY</span></td></tr>
+          <tr><td style="font-weight:600">Secure Storage</td><td style="color:var(--text-dim)"><code>flutter_secure_storage</code> for API keys</td><td><span class="tag tag-red">MISSING</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(74,158,255,.2)">
+      <div class="card-title" style="color:var(--blue)">What Core Has That QWR Lacks</div>
+      <table>
+        <thead><tr><th>Feature</th><th>Core Implementation</th><th>QWR Status</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600">StateGraph Pipeline</td><td style="color:var(--text-dim)">8 nodes, conditional edges, loops, streaming</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">On-Device SLM</td><td style="color:var(--text-dim)">Qwen3-0.6B via llama.cpp FFI, background isolate</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">MCP Tool System</td><td style="color:var(--text-dim)">81 tools, JSON Schema, priority tiers, toMcpSchema()</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">3-Gate Security</td><td style="color:var(--text-dim)">AccessLevel, grantedAccess, @nonVirtual capping</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Plugin System</td><td style="color:var(--text-dim)">Signature-verified, build-mode gated, access capping</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Resource Leasing</td><td style="color:var(--text-dim)">HardwareResourceManager, leases, timeouts</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Model Registry</td><td style="color:var(--text-dim)">Multi-model config, routing policy</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Structured Logging</td><td style="color:var(--text-dim)">ISystemJournal, TraceId, ConfidentialLog</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Platform Managers</td><td style="color:var(--text-dim)">11 interfaces (WiFi, BT, Camera, Mic, Sensor, etc.)</td><td><span class="tag tag-red">MISSING</span></td></tr>
+          <tr><td style="font-weight:600">Peripheral SDK</td><td style="color:var(--text-dim)">IPeripheralProvider, capability-based tool filtering</td><td><span class="tag tag-red">MISSING</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5: TARGET ROLE -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <div id="target">
+    <div class="sl" style="color:var(--green)">5 &mdash; What QWR Companion Should Become</div>
+
+    <div class="card" style="border:1px solid rgba(74,255,138,.2)">
+      <div class="card-title" style="color:var(--green)">Target Architecture: QWR = Brain + UI, Core = Engine + Tools + Connectors</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--surface2);padding:16px;border-radius:10px;margin:10px 0;line-height:1.8;color:var(--text-dim)">
+<pre style="margin:0;color:var(--text-dim)">
+<span style="color:var(--orange);font-weight:700">qwr_companion</span> (Flutter app — Brain + UI)
+├── <span style="color:var(--cyan)">Voice Input</span>     Activation → Audio → STT (Whisper) → text
+├── <span style="color:var(--blue)">LM Engine</span>      On-device SLM (Qwen3 via llama.cpp) — ported from humbl_lm
+├── <span style="color:var(--purple)">Intent Models</span>  LmIntentProcessor adapter for pipeline ClassifyNode
+├── <span style="color:var(--rose)">Output</span>         TTS + Earcons + Glasses Display + App UI
+├── <span style="color:var(--indigo)">Auth</span>           Supabase auth + secure storage + user tier
+├── <span style="color:var(--yellow)">Glasses HW</span>     BLE adapters implementing core's IPeripheralProvider
+└── <span style="color:var(--text)">UI Screens</span>     All 35+ screens (chat, settings, gallery, etc.)
+       │
+       │  <span style="color:var(--text-faint)">depends on (pubspec dependency)</span>
+       ▼
+<span style="color:var(--blue);font-weight:700">humbl_core</span> (Flutter plugin — Engine + Tools + Connectors)
+├── <span style="color:var(--cyan)">Pipeline</span>       StateGraph, PipelineOrchestrator, 8 nodes
+├── <span style="color:var(--green)">Tool System</span>    81+ MCP tools, ToolRegistry, 7 domains
+├── <span style="color:var(--purple)">Security</span>       3-gate access control, plugin verification
+├── <span style="color:var(--orange)">Platform</span>       13+ manager interfaces (WiFi, BT, Camera, Contacts, Phone, etc.)
+├── <span style="color:var(--lime)">Connectors</span>     Contacts, Phone, Notifications, Spotify, Music — as proper tools
+├── <span style="color:var(--teal)">Cloud Gate</span>     ICloudGateway + Gemini/OpenAI implementations
+├── <span style="color:var(--indigo)">Resources</span>      Hardware resource leasing
+├── <span style="color:var(--rose)">Devices SDK</span>    IPeripheralProvider + PeripheralCapabilities
+├── <span style="color:var(--text)">Logging</span>        SystemJournal, TraceId, ConfidentialLog
+└── <span style="color:var(--yellow)">Models</span>         ModelRegistry, RoutingPolicy, IIntentProcessor
+</pre>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card" style="border:1px solid rgba(0,212,170,.2)">
+        <div class="card-title" style="color:var(--cyan)">QWR Responsibilities (Brain + UI)</div>
+        <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+          <div>1. <strong style="color:var(--text)">STT:</strong> Whisper on-device speech-to-text (model loading, audio capture, transcription)</div>
+          <div>2. <strong style="color:var(--text)">TTS:</strong> System TTS output + earcon sound effects</div>
+          <div>3. <strong style="color:var(--text)">LM Engine:</strong> On-device SLM (Qwen3-0.6B via llama.cpp FFI in background isolate)</div>
+          <div>4. <strong style="color:var(--text)">Intent Classification:</strong> LmIntentProcessor adapter for pipeline&rsquo;s ClassifyNode</div>
+          <div>5. <strong style="color:var(--text)">Glasses Hardware:</strong> BLE adapters implementing core&rsquo;s IPeripheralProvider</div>
+          <div>6. <strong style="color:var(--text)">Auth &amp; User:</strong> Supabase auth, user tier, BYOK API keys, secure storage</div>
+          <div>7. <strong style="color:var(--text)">UI:</strong> All 35+ screens, theming, navigation, onboarding, settings</div>
+          <div>8. <strong style="color:var(--text)">Startup Wiring:</strong> Create platform managers, inject into core, start pipeline</div>
+        </div>
+      </div>
+      <div class="card" style="border:1px solid rgba(74,158,255,.2)">
+        <div class="card-title" style="color:var(--blue)">Core Responsibilities (Engine + Tools + Connectors)</div>
+        <div style="font-size:13px;color:var(--text-dim);line-height:1.8">
+          <div>1. <strong style="color:var(--text)">Pipeline:</strong> StateGraph orchestration, routing decisions, multi-step loops</div>
+          <div>2. <strong style="color:var(--text)">Tools:</strong> 81+ MCP tool definitions, schemas, validation, execution lifecycle</div>
+          <div>3. <strong style="color:var(--text)">Connectors:</strong> Contacts, Phone, Notifications, Music (platform + 3rd party) as proper tools</div>
+          <div>4. <strong style="color:var(--text)">Cloud Gateway:</strong> ICloudGateway + Gemini/OpenAI implementations for cloud escalation</div>
+          <div>5. <strong style="color:var(--text)">Security:</strong> 3-gate access control, plugin verification, access capping</div>
+          <div>6. <strong style="color:var(--text)">Platform Interfaces:</strong> 13+ I-prefix abstractions (WiFi, BT, Camera, Contacts, Phone, etc.)</div>
+          <div>7. <strong style="color:var(--text)">Resources:</strong> Hardware leasing, contention resolution, lease timeouts</div>
+          <div>8. <strong style="color:var(--text)">Device SDK:</strong> IPeripheralProvider contract + capability matching</div>
+          <div>9. <strong style="color:var(--text)">Logging:</strong> Structured journal, trace IDs, confidential encryption</div>
+          <div>10. <strong style="color:var(--text)">Models:</strong> Model config registry, routing policy</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 6: INTEGRATION PLAN -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+
+  <div id="integration">
+    <div class="sl" style="color:var(--blue)">6 &mdash; Implementation Gaps to Connect Core &harr; Companion</div>
+
+    <div class="card" style="border:1px solid rgba(255,74,106,.2)">
+      <div class="card-title" style="color:var(--red)">Phase 0: Prerequisites (Do First)</div>
+      <table>
+        <thead><tr><th>Task</th><th>Details</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr><td style="font-weight:600">Add humbl_core dependency</td><td style="color:var(--text-dim)">Add <code>humbl_core</code> as path dependency in qwr_companion/pubspec.yaml. Resolve version conflicts (Dart SDK, permission_handler, flutter_blue_plus).</td><td><span class="tag tag-green">Small</span></td></tr>
+          <tr><td style="font-weight:600">Port LmEngine from humbl_lm</td><td style="color:var(--text-dim)">Move <code>lm_engine.dart</code>, <code>lm_intent_processor.dart</code>, <code>intent_prompt_builder.dart</code>, <code>model_downloader.dart</code> into qwr_companion. Add <code>llama_cpp_dart</code> dependency. Adapt model paths.</td><td><span class="tag tag-yellow">Medium</span></td></tr>
+          <tr><td style="font-weight:600">Rename package</td><td style="color:var(--text-dim)">Rename <code>g1_glasses_app</code> &rarr; <code>qwr_companion</code> in pubspec.yaml and all imports.</td><td><span class="tag tag-green">Small</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(255,138,74,.2)">
+      <div class="card-title" style="color:var(--orange)">Phase 1: Wire Pipeline (Critical Path)</div>
+      <table>
+        <thead><tr><th>Task</th><th>Details</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600">Create PlatformFactory bridge</td>
+            <td style="color:var(--text-dim)">QWR&rsquo;s existing services need to provide implementations for core&rsquo;s platform manager interfaces. Create adapter classes: <code>QwrWifiManager implements IWifiManager</code>, etc. Can start with stubs for managers QWR doesn&rsquo;t use.</td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Wire ToolRegistry in startup</td>
+            <td style="color:var(--text-dim)">Call <code>createToolRegistry()</code> with platform managers during app init. Replace QWR&rsquo;s IntentRegistry + CommandExecutor with core&rsquo;s ToolRegistry + ExecuteToolNode.</td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Wire PipelineOrchestrator</td>
+            <td style="color:var(--text-dim)">Create <code>PipelineOrchestrator</code> with <code>LmIntentProcessor</code> (ported from humbl_lm). Replace VoiceIntentPipeline&rsquo;s intent &rarr; execute path with <code>orchestrator.run(state)</code>.</td>
+            <td><span class="tag tag-red">Large</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Connect voice input to pipeline</td>
+            <td style="color:var(--text-dim)">VoiceIntentPipeline&rsquo;s <code>_processTranscript()</code> should create a <code>PipelineState</code> with the transcript and call <code>orchestrator.runStream()</code>. Remove OfflineIntentEngine and AIProviderManager from the voice path.</td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(74,158,255,.2)">
+      <div class="card-title" style="color:var(--blue)">Phase 2: Cloud Gateway Implementation</div>
+      <table>
+        <thead><tr><th>Task</th><th>Details</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600">Implement ICloudGateway</td>
+            <td style="color:var(--text-dim)">Create <code>QwrCloudGateway implements ICloudGateway</code> that wraps GeminiAIService + OpenAIRealtimeService. Route based on ModelRegistry&rsquo;s RoutingPolicy (vision &rarr; Gemini, reasoning &rarr; OpenAI, etc.).</td>
+            <td><span class="tag tag-red">Large</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Tool-calling support</td>
+            <td style="color:var(--text-dim)">Gemini and OpenAI both support tool calls. Map core&rsquo;s <code>toMcpToolList()</code> to each provider&rsquo;s tool format. Handle <code>CloudLoopAction.toolCall</code> &rarr; <code>ExecuteToolNode</code> &rarr; feed result back.</td>
+            <td><span class="tag tag-red">Large</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">BYOK key management</td>
+            <td style="color:var(--text-dim)">QWR already stores API keys in <code>flutter_secure_storage</code>. Wire this into core&rsquo;s cloud gate quota chain. Free tier: BYOK only. Standard+: Humbl quota + BYOK fallback.</td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(168,85,247,.2)">
+      <div class="card-title" style="color:var(--purple)">Phase 3: Glasses Device Merge</div>
+      <table>
+        <thead><tr><th>Task</th><th>Details</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600">Adapt GlassesDevice &rarr; IPeripheralProvider</td>
+            <td style="color:var(--text-dim)">Make DpvrG1Adapter and MentraLiveAdapter implement core&rsquo;s <code>IPeripheralProvider</code> + <code>IConnectedDevice</code>. Map <code>GlassesCapabilities</code> &rarr; <code>PeripheralCapabilities</code>.</td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Register in DeviceRegistry</td>
+            <td style="color:var(--text-dim)">Register adapted providers in core&rsquo;s <code>DeviceRegistry</code> so tools can discover connected devices and filter by capability.</td>
+            <td><span class="tag tag-green">Small</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Remove duplicate interfaces</td>
+            <td style="color:var(--text-dim)">Delete QWR&rsquo;s <code>GlassesDevice</code>, <code>GlassesCapabilities</code>, <code>GlassesConnectionState</code>. Use core&rsquo;s equivalents everywhere.</td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(0,212,170,.2)">
+      <div class="card-title" style="color:var(--cyan)">Phase 4: Migrate Connectors into Core</div>
+      <p style="color:var(--text-dim);margin-bottom:10px;font-size:13px">Connector logic moves <strong style="color:var(--text)">into humbl_core</strong> as proper platform interfaces + tool implementations. QWR no longer owns connector code directly.</p>
+      <table>
+        <thead><tr><th>Task</th><th>Details</th><th>Type</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600">Create IContactsProvider</td>
+            <td style="color:var(--text-dim)">New interface in <code>platform/contacts/</code>. Move ContactsService logic into core. Tools <code>call_make</code> inject it for contact resolution.</td>
+            <td><span class="tag tag-green">Platform</span></td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Create IPhoneProvider</td>
+            <td style="color:var(--text-dim)">New interface in <code>platform/phone/</code>. Move PhoneService logic (makeCall, callContact, call monitoring) into core. Tools <code>call_make</code>, <code>call_answer</code>, <code>emergency</code> inject it.</td>
+            <td><span class="tag tag-green">Platform</span></td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Create INotificationProvider</td>
+            <td style="color:var(--text-dim)">New interface in <code>platform/notifications/</code>. Move NotificationRelayService logic into core. Tool <code>read_msg</code> injects it.</td>
+            <td><span class="tag tag-green">Platform</span></td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Migrate MusicConnectorFacade &rarr; IMediaManager</td>
+            <td style="color:var(--text-dim)">MusicConnectorFacade implements <code>IMediaManager</code>. Routes to Spotify SDK / Apple Music / system MediaSession. Move facade + SpotifyService + AppleMusicService into core.</td>
+            <td><span class="tag tag-purple">Hybrid</span></td>
+            <td><span class="tag tag-red">Large</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Migrate SocialShareService &rarr; IMediaManager.share()</td>
+            <td style="color:var(--text-dim)">Move share logic into core&rsquo;s IMediaManager implementation. <code>share_plus</code> dependency moves to humbl_core.</td>
+            <td><span class="tag tag-green">Platform</span></td>
+            <td><span class="tag tag-green">Small</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Migrate Gemini + OpenAI &rarr; ICloudGateway</td>
+            <td style="color:var(--text-dim)">Move GeminiAIService, Gemini Live, OpenAIRealtimeService into core as <code>ICloudGateway</code> implementations. Includes tool-calling support (MCP &rarr; provider format).</td>
+            <td><span class="tag tag-purple">3rd Party</span></td>
+            <td><span class="tag tag-red">Large</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Wire all tools to injected providers</td>
+            <td style="color:var(--text-dim)">Update communication, media, AI vision tools to inject the new providers. Update <code>createToolRegistry()</code> to accept new interfaces. Remove <code>throw UnimplementedError</code> from all tool execute() methods.</td>
+            <td><span class="tag tag-blue">Wiring</span></td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(255,210,74,.2)">
+      <div class="card-title" style="color:var(--yellow)">Phase 5: Output &amp; Delivery</div>
+      <table>
+        <thead><tr><th>Task</th><th>Details</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600">Create output router</td>
+            <td style="color:var(--text-dim)">Pipeline&rsquo;s <code>DeliverNode</code> produces <code>outputText</code>. Need an output router that decides: speak via TTS? display on glasses? show in app UI? play earcon? Based on context + device state.</td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Connect TTS + Earcons</td>
+            <td style="color:var(--text-dim)">Wire QWR&rsquo;s <code>TTSService</code> and <code>EarconService</code> to pipeline output. Earcon on pipeline start/end, TTS for responses.</td>
+            <td><span class="tag tag-green">Small</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Pipeline streaming UI</td>
+            <td style="color:var(--text-dim)">Use <code>orchestrator.runStream()</code> to update UI with thinking indicators: &ldquo;Classifying...&rdquo; &rarr; &ldquo;Executing photo...&rdquo; &rarr; &ldquo;Done&rdquo;. QWR already has the Lottie animations for this.</td>
+            <td><span class="tag tag-green">Small</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(129,140,248,.2)">
+      <div class="card-title" style="color:var(--indigo)">Phase 6: Cleanup &amp; Drop humbl_lm</div>
+      <table>
+        <thead><tr><th>Task</th><th>Details</th><th>Effort</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600">Remove humbl_lm</td>
+            <td style="color:var(--text-dim)">After LmEngine + widgets are ported to qwr_companion, delete <code>humbl_lm/</code> entirely. Update CLAUDE.md, README, build scripts.</td>
+            <td><span class="tag tag-green">Small</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Remove duplicate code from QWR</td>
+            <td style="color:var(--text-dim)">Delete <code>IntentRegistry</code>, <code>OfflineIntentEngine</code>, <code>CommandExecutor</code>, <code>VoiceCommandService</code>. All intent routing now goes through core&rsquo;s pipeline.</td>
+            <td><span class="tag tag-yellow">Medium</span></td>
+          </tr>
+          <tr>
+            <td style="font-weight:600">Update CLAUDE.md</td>
+            <td style="color:var(--text-dim)">Reflect new 2-module architecture: <code>qwr_companion</code> (app) + <code>humbl_core</code> (engine). Remove humbl_lm references.</td>
+            <td><span class="tag tag-green">Small</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Summary -->
+    <div class="card" style="border:1px solid rgba(74,158,255,.25);background:rgba(74,158,255,.03);margin-top:8px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:2px;color:var(--blue);margin-bottom:10px">DATA FLOW AFTER INTEGRATION</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;line-height:2;color:var(--text-dim)">
+        <div><span style="color:var(--cyan)">User speaks</span> &rarr; QWR <span style="color:var(--text)">VoiceIntentPipeline</span> captures audio</div>
+        <div>&emsp;&rarr; QWR <span style="color:var(--text)">WhisperSttEngine</span> transcribes to text</div>
+        <div>&emsp;&rarr; QWR creates <span style="color:var(--blue)">PipelineState</span> with transcript</div>
+        <div>&emsp;&rarr; Core <span style="color:var(--text)">PipelineOrchestrator.runStream()</span></div>
+        <div>&emsp;&emsp;&rarr; Core <span style="color:var(--text)">ContextAssemblyNode</span> (memory injection)</div>
+        <div>&emsp;&emsp;&rarr; Core <span style="color:var(--text)">ClassifyNode</span> &rarr; QWR <span style="color:var(--text)">LmIntentProcessor</span> (on-device SLM)</div>
+        <div>&emsp;&emsp;&rarr; Core <span style="color:var(--text)">RouteDecisionNode</span> (fast / slm_loop / cloud_loop)</div>
+        <div>&emsp;&emsp;&rarr; <span style="color:var(--green)">fast:</span> Core <span style="color:var(--text)">ExecuteToolNode</span> &rarr; Core <span style="color:var(--text)">ToolRegistry.execute()</span></div>
+        <div>&emsp;&emsp;&emsp;&rarr; Core tools call Core <span style="color:var(--lime)">IContactsProvider</span> / <span style="color:var(--lime)">IPhoneProvider</span> / <span style="color:var(--lime)">IMediaManager</span> (real implementations)</div>
+        <div>&emsp;&emsp;&rarr; <span style="color:var(--orange)">cloud:</span> Core <span style="color:var(--text)">CloudGatewayNode</span> &rarr; Core <span style="color:var(--teal)">ICloudGateway</span> (Gemini/OpenAI impl)</div>
+        <div>&emsp;&emsp;&rarr; Core <span style="color:var(--text)">DeliverNode</span> &rarr; QWR <span style="color:var(--text)">OutputRouter</span></div>
+        <div>&emsp;&emsp;&emsp;&rarr; QWR <span style="color:var(--rose)">TTSService.speak()</span> + <span style="color:var(--purple)">GlassesDevice.displayText()</span> + <span style="color:var(--text)">UI update</span></div>
+      </div>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(255,210,74,.2);background:rgba(255,210,74,.03)">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:2px;color:var(--yellow);margin-bottom:10px">PRIORITY ORDER</div>
+      <div style="font-size:14px;color:var(--text-dim);line-height:1.8">
+        <div><span style="color:var(--red);font-weight:700;font-family:'JetBrains Mono',monospace">P0</span> Phase 0 + Phase 1 &mdash; Add dependency, port LM engine, wire pipeline. Critical integration that makes everything else possible.</div>
+        <div><span style="color:var(--orange);font-weight:700;font-family:'JetBrains Mono',monospace">P1</span> Phase 3 + Phase 4 &mdash; Merge glasses adapters, migrate connectors into core as proper tools. Makes the pipeline actually useful with real hardware and services.</div>
+        <div><span style="color:var(--yellow);font-weight:700;font-family:'JetBrains Mono',monospace">P2</span> Phase 2 &mdash; Cloud gateway (Gemini + OpenAI into core). Enables the 20-30% of queries that need cloud AI.</div>
+        <div><span style="color:var(--green);font-weight:700;font-family:'JetBrains Mono',monospace">P3</span> Phase 5 + Phase 6 &mdash; Output routing, cleanup, drop humbl_lm. Polish.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
