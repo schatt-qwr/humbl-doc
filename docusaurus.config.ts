@@ -7,10 +7,10 @@ const config: Config = {
   tagline: 'Edge-first personal AI assistant for smart glasses',
   favicon: 'img/favicon.ico',
 
-  url: 'https://qwr-app.github.io',
+  url: 'https://schatt-qwr.github.io',
   baseUrl: '/humbl-doc/',
 
-  organizationName: 'qwr-app',
+  organizationName: 'schatt-qwr',
   projectName: 'humbl-doc',
   deploymentBranch: 'gh-pages',
   trailingSlash: false,
