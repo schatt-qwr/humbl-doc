@@ -9,7 +9,7 @@ title: Test Coverage
 
 | Test Type | Status | Count |
 |-----------|--------|-------|
-| Unit | ~15% | 509+ tests across 101 test files (all packages) |
+| Unit | ~20% | 700+ tests across all packages |
 | Integration | 0% | No multi-module wiring tests |
 | E2E | 0% | No full pipeline turn tests |
 | Device | 0% | No Android/iOS hardware tests |
@@ -17,22 +17,22 @@ title: Test Coverage
 
 ## Unit Tests
 
-509+ unit tests passing across 101 test files spanning all packages.
+700+ unit tests passing across all packages.
 
 ### Tests by Package
 
 | Package | Tests | Test Files | Key Tests |
 |---------|-------|-----------|-----------|
 | `humbl_core` | ~250+ | 63 | Pipeline, tools, gates, memory, payments, providers, LM gateway |
-| `langchain_dart` | 166 | 17+ | LCEL chains, runnables (Assign/Pick/Each/Binding), tool rendering, memory (buffer + summary), callbacks, vector stores, message utilities (merge/trim/filter), FewShotPromptTemplate |
-| `langchain_graph` | 109 | 7+ | StateGraph compilation, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, channels, checkpointing, ReAct agent |
-| `litellm_dart` | 113 | 7+ | Router strategies, all 11 provider adapters (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace), cost calculation, cooldown, embedding API, budget manager, acompletion pipeline |
-| `langsmith_dart` | 56 | 4+ | Client HTTP API, LangChainTracer, run/dataset/example CRUD, evaluate() with datasets, tracers (console, confidential, metrics) |
+| `langchain_dart` | 175 | 17+ | LCEL chains, runnables (Assign/Pick/Each/Binding/Generator), tool rendering, memory (buffer + summary + entity), callbacks, vector stores, message utilities (merge/trim/filter), prompts (FewShot + Pipeline), parsers (XML), retrievers (contextual compression), fake models |
+| `langchain_graph` | 128 | 7+ | StateGraph compilation, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, channels, checkpointing (SQLite + Postgres), 6 prebuilt agents (ReAct, Supervisor, Swarm, Handoff, Plan-and-Execute, Hierarchical) |
+| `litellm_dart` | 113 | 7+ | Router strategies, all 12 provider adapters (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace/Together/Mistral), cost calculation, cooldown, embedding API, image generation, budget manager, acompletion pipeline, Redis cache |
+| `langsmith_dart` | 56 | 4+ | Client HTTP API with pluggable transport, LangChainTracer, run/dataset/example CRUD, evaluate() + evaluateComparative() with datasets, tracers (console, confidential, metrics) |
 | `humbl_lm` | — | 2 | Minimal (scaffolded) |
 | `humbl_voice` | — | 2 | Minimal (scaffolded) |
 | `humbl_runtime` | — | 1 | Minimal (scaffolded) |
 
-**Framework package totals:** 444 tests (up from 314 before the 1:1 port completion)
+**Framework package totals:** 472 tests (up from 314 at the start of the port effort)
 
 ### humbl_core Test Distribution
 

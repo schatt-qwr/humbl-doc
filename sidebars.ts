@@ -40,6 +40,7 @@ const sidebars: SidebarsConfig = {
             'architecture/supporting/logging',
             'architecture/supporting/mcp',
             'architecture/supporting/services-agent',
+            'architecture/supporting/cloud-agents',
           ],
         },
         'architecture/data-flow',

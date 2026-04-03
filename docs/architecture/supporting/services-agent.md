@@ -381,6 +381,14 @@ Background agents that require cloud LM access consume credits:
 
 Local agents (on-device only, `requiresCloud: false`) do not consume credits and are free on all tiers. The `shouldRun()` method checks battery level, connectivity, and time-of-day before executing, so agents don't run in inappropriate conditions (e.g., no morning briefing at midnight, no commute agent on weekends).
 
+## Cloud Agent Extension
+
+Background agents that require cloud resources (web search, large context, multi-step reasoning) are dispatched to the **Cloud Agent Backend**. The Main Agent spawns a cloud clone as a child agent, communicates via a bidirectional message bus (Supabase Realtime), and receives results in the Agent Inbox.
+
+28 agent types are defined via YAML configs: 25 pre-built + 1 user-configurable + 2 micro (lightweight, no LM). Cloud agents run real Python LangGraph + LiteLLM on Cloud Run, sharing the same abstractions as the Dart ports.
+
+See [Cloud Agent Backend](./cloud-agents) for the full cloud architecture, message bus protocol, and agent YAML format.
+
 ## Source Files
 
 | File | Description |

@@ -13,10 +13,10 @@ Humbl's AI layer is built on native Dart ports of four industry-standard Python 
 
 | Package | Port of | What It Provides |
 |---------|---------|-----------------|
-| [`langchain_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_dart) | LangChain | Runnables (LCEL + Assign/Pick/Each/Binding), tools (`BaseTool`), memory (buffer + summary), callbacks, prompts (few-shot), messages (merge/trim/filter), retrievers, vector stores |
-| [`langchain_graph`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_graph) | LangGraph | `StateGraph`, superstep execution, `Send` fan-out, fan-in barriers, subgraph composition, `MessageGraph`, channels, checkpointing, prebuilt agents (ReAct), graph runtime |
-| [`litellm_dart`](https://github.com/qwr-app/humbl/tree/main/packages/litellm_dart) | LiteLLM | Multi-provider `Router`, 11 provider adapters (incl. Gemini, Azure, Bedrock, Vertex AI, Cohere, HuggingFace), embedding API, cost tracking, budget manager, `acompletion()` pipeline |
-| [`langsmith_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langsmith_dart) | LangSmith | `Client` (HTTP API), `LangChainTracer`, run/dataset/example CRUD, `evaluate()` with scoring, tracing, feedback, metrics |
+| [`langchain_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_dart) | LangChain | Runnables (LCEL + Assign/Pick/Each/Binding/Generator), tools (`BaseTool` + `ToolException`), memory (buffer + summary + entity), callbacks + `RunManager`, prompts (few-shot + pipeline), messages (merge/trim/filter), retrievers (contextual compression), vector stores, parsers (XML), fake test models |
+| [`langchain_graph`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_graph) | LangGraph | `StateGraph`, superstep execution, `Send` fan-out, fan-in barriers, subgraph composition, `MessageGraph`, channels, checkpointing (SQLite + Postgres), `NamespacedInMemoryStore`, 6 prebuilt agents (ReAct, Supervisor, Swarm, Handoff, Plan-and-Execute, Hierarchical) |
+| [`litellm_dart`](https://github.com/qwr-app/humbl/tree/main/packages/litellm_dart) | LiteLLM | Multi-provider `Router`, 12 provider adapters (incl. Gemini, Azure, Bedrock, Vertex AI, Cohere, HuggingFace, Together AI, Mistral), embedding API, image generation API, cost tracking, budget manager, `acompletion()` pipeline, Redis cache adapter, request logging |
+| [`langsmith_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langsmith_dart) | LangSmith | `Client` with pluggable HTTP transport, `LangChainTracer`, run/dataset/example CRUD, `evaluate()` + `evaluateComparative()`, tracing, feedback, metrics |
 
 These are **not wrappers** — they are full Dart reimplementations following the same interfaces as their Python counterparts. All Humbl features are extensions of these ports:
 
@@ -77,7 +77,7 @@ The provider pattern is consistent across modules:
 
 | Module | Interface | Built-in providers | User configurable? |
 |--------|-----------|-------------------|-------------------|
-| LM Inference | `ILmConnector` + `ILmProvider` | 11 connectors (OpenAI, Anthropic, Gemini, Ollama, etc.) | Yes — add API keys in settings |
+| LM Inference | `ILmConnector` + `ILmProvider` | 12 adapters (OpenAI, Anthropic, Gemini, Azure, Bedrock, Vertex AI, Cohere, HuggingFace, Together AI, Mistral, Ollama, Custom) | Yes — add API keys in settings |
 | Speech-to-Text | `ISttProvider` | Android native, iOS native, Whisper API, Whisper.cpp | Yes — select in voice settings |
 | Text-to-Speech | `ITtsProvider` | Android native, iOS native, ElevenLabs, OpenAI TTS, Piper | Yes — select in voice settings |
 | Embeddings | `IEmbeddingProvider` | ONNX (MiniLM-L6-v2), Noop | Yes — model download in settings |
@@ -162,7 +162,8 @@ packages/
   langchain_graph/      LangGraph state machine — StateGraph, channels, checkpoints
 
 humbl_core/             Flutter plugin — pipeline, tools, memory, platform managers, security
-humbl_app/              Flutter app — startup wiring, BLoC state management, UI screens
+humbl_app/              Flutter app — 34 screens, 20-step startup, BLoC state management
+humbl_backend/          Supabase Edge Functions + Cloud Run worker + 28 agent configs
 humbl_lm/               LLM connector implementations (planned)
 humbl_voice/            Voice provider implementations (planned)
 humbl_runtime/          Native runtimes — llama.cpp FFI, ONNX, ExecuTorch, LiteRT
@@ -175,41 +176,38 @@ humbl-doc/              Documentation — this site
 
 | Package | Language | Status | Purpose |
 |---------|----------|--------|---------|
-| `langchain_dart` | Dart | **Active** — 166 tests | LangChain Core — runnables (LCEL + Assign/Pick/Each), tools, memory (buffer + summary), callbacks, prompts (few-shot), messages (merge/trim/filter), vector stores |
-| `langsmith_dart` | Dart | **Active** — 56 tests | LangSmith — Client API, LangChainTracer, run/dataset/example CRUD, evaluate(), tracing, feedback, metrics |
-| `litellm_dart` | Dart | **Active** — 113 tests | LiteLLM — Router, 11 providers (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace), embedding API, budget manager, acompletion pipeline |
-| `langchain_graph` | Dart | **Active** — 109 tests | LangGraph — StateGraph, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, checkpointing, ReAct agent |
-| `humbl_core` | Dart | **Active** — 31 modules, 343 exports, 509 tests | All interfaces, pipeline, tools, memory, security, platform managers, devices SDK |
-| `humbl_app` | Dart/Flutter | **Active** — wiring done, screens pending | Startup sequence (20-step wiring), BLoC state management (15 planned), 28+ screens (pending) |
+| `langchain_dart` | Dart | **Active** — 175 tests | LangChain Core — runnables (LCEL + Assign/Pick/Each/Binding/Generator), tools, memory (buffer + summary + entity), callbacks, prompts (few-shot + pipeline), messages (merge/trim/filter), retrievers (compression), parsers (XML), vector stores, fake test models |
+| `langsmith_dart` | Dart | **Active** — 56 tests | LangSmith — Client API with pluggable transport, LangChainTracer, run/dataset/example CRUD, evaluate() + evaluateComparative(), tracing, feedback, metrics |
+| `litellm_dart` | Dart | **Active** — 113 tests | LiteLLM — Router, 12 providers (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace/Together/Mistral), embedding + image APIs, budget manager, acompletion pipeline, Redis cache |
+| `langchain_graph` | Dart | **Active** — 128 tests | LangGraph — StateGraph, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, checkpointing (SQLite + Postgres), 6 prebuilt agents |
+| `humbl_core` | Dart | **Active** — 31 modules, 343 exports | All interfaces, pipeline, tools, memory, security, platform managers, devices SDK |
+| `humbl_app` | Dart/Flutter | **Active** — 34 screens implemented | Startup sequence (20-step wiring), BLoC state management, AuthBloc, AgentInbox, all screens |
 | `humbl_lm` | Dart | **Scaffolded** | LLM provider implementations — concrete connectors for OpenAI, Anthropic, Gemini, etc. |
 | `humbl_voice` | Dart | **Scaffolded** | STT/TTS/VAD provider implementations — Whisper.cpp, Piper, Silero, platform native |
 | `humbl_runtime` | C++/Rust/Dart | **Scaffolded** | Native inference runtimes — llama.cpp FFI, ONNX Runtime, ExecuTorch, LiteRT, Whisper.cpp |
 | `humbl_utility` | Dart | **Planned** | WebRTC transport, web search providers, weather, context summarization, audio utilities |
 | `humbl_connectors` | Dart | **Planned** | 3rd party service connectors — Spotify, Google Calendar/Contacts/Tasks, Apple Health, Gmail |
 | `humbl_features` | Dart | **Planned** | Gamification (badges, streaks), notifications, recording, security (voice fingerprint), profile, analytics |
-| `humbl_backend` | TypeScript | **Partial** | Supabase Edge Functions — spend-log endpoint exists, quota/sync/reset pending |
+| `humbl_backend` | TypeScript + Python | **Active** | Supabase Edge Functions (dispatch, quota, micro-agent), Cloud Run worker (Python/FastAPI/LangGraph), 28 agent YAML configs |
 | `humbl-doc` | Docusaurus | **Active** | This documentation site |
 
-### Why is humbl_app mostly empty?
+### App Frontend — Foundation-First, Now Complete
 
-The project has followed a **foundation-first** strategy: build all interfaces, pipeline logic, security gates, platform abstractions, and memory systems in `humbl_core` before writing any UI code. This is deliberate:
+The project followed a **foundation-first** strategy: all interfaces, pipeline logic, security gates, platform abstractions, and memory systems were built in `humbl_core` before writing UI code. This is deliberate:
 
 1. **humbl_core is the product.** The pipeline, tools, memory, and LM gateway are the AI brain. UI is a presentation layer that attaches to running services. The architecture is **service-first, not UI-first** — services run independently, UI attaches and detaches as an optional layer.
 
-2. **humbl_app depends on everything.** The 20-step startup wiring in `main.dart` creates every service, connects every interface, and launches the app. If the interfaces don't exist yet, the screens can't be built. BLoC state management wraps `humbl_core` interfaces — `ChatBloc` subscribes to `HumblAgent.results`, `VoiceBloc` wraps `VoiceSessionRunner`, `SettingsBloc` wraps `SettingsService`.
+2. **humbl_app depends on everything.** The 20-step startup wiring in `main.dart` creates every service, connects every interface, and launches the app. BLoC state management wraps `humbl_core` interfaces — `ChatBloc` subscribes to `HumblAgent.results`, `VoiceBloc` wraps `VoiceSessionRunner`, `SettingsBloc` wraps `SettingsService`.
 
-3. **The app plan is waiting on the master plan.** The frontend plan (`sparkling-dazzling-creek.md`) explicitly states: "This plan starts AFTER the master plan completes." It defines 15 BLoCs, 28+ screens, and 4 phases — but all phases require master plan interfaces to be delivered first.
+**All 34 screens are now implemented** with zero stubs remaining:
 
-**What has been done so far:**
 - `main.dart` — Full 20-step startup wiring (all services created and connected)
-- `services/humbl/` — Supabase implementations (auth, cloud sync, blob storage, key vault)
-- `config/cloud_config.dart` — Cloud configuration
-
-**What comes next (app frontend plan):**
-- Phase 1: BLoC infrastructure + auth + navigation shell (AuthBloc, LifecycleBloc, AppShell)
-- Phase 2: Chat + voice + conversation screens (ChatBloc, VoiceBloc, ConversationBloc)
-- Phase 3: Settings + profile + device management screens
-- Phase 4: Features (notes, badges, gamification, voice enrollment)
+- `blocs/auth/` — AuthBloc wired to Supabase (signIn/signUp/resetPassword/signOut + auth stream listener)
+- `blocs/agent_inbox/` — AgentInbox BLoC for cloud agent job management
+- `screens/auth/` — Login, Signup, Forgot Password screens
+- `screens/settings/` — API Keys, LM Providers, general settings
+- `screens/agent_inbox/` — Full agent inbox with dispatch dialog, detail sheet, swipe dismiss, pin/unpin
+- `services/humbl/` — Supabase implementations (auth, cloud sync, blob storage, key vault, agent messages)
 
 ### What about humbl_lm, humbl_voice, humbl_utility?
 
@@ -304,7 +302,7 @@ The diagram above shows dependency arrows, but the narrative is more important t
 | **Tool System** | `HumblTool`, `ToolRegistry`, `createToolRegistry()` | MCP-compatible registry with 70+ tools across 16 domain files. Five-gate security template. |
 | **Permissions** | `AccessControl`, `ToolStateManager`, `IPermissionService` | Three-layer access model: OS permissions, tool state probing, caller privilege math. |
 | **Platform Managers** | `PlatformFactory`, 21 `I*Manager` interfaces | Per-platform implementations for WiFi, BLE, camera, mic, contacts, notifications, etc. |
-| **LM Gateway** | `HumblChatModel`, `ConnectorRegistry`, litellm `Router` | Single LM entry point (`HumblChatModel extends BaseChatModel`). Routes requests via litellm Router to the best provider (on-device, local network, BYOK, app cloud). |
+| **LM Gateway** | `HumblChatModel`, `ConnectorRegistry`, litellm `Router` | Single LM entry point (`HumblChatModel extends BaseChatModel`). Routes requests via litellm Router (12 providers, 5 strategies) to the best provider (on-device, local network, BYOK, app cloud). |
 | **Memory** | `SqliteMemoryService`, `SqliteVecStore`, `ConversationStore` | T2 key-value, T3 vector similarity (ONNX embeddings), T4 interaction log. |
 | **Devices SDK** | `DeviceRegistry`, `IPeripheralProvider`, `IConnectedDevice` | Provider-based abstraction for smart glasses. Built-in: Even G1, Frame, Humbl Glasses, Simulated. |
 | **Voice I/O** | `VoiceSessionRunner`, `IVadEngine`, `ISttProvider`, `ITtsProvider` | Full voice pipeline: wake word, VAD, speech-to-text, pipeline dispatch, text-to-speech. |
@@ -318,7 +316,8 @@ The diagram above shows dependency arrows, but the narrative is more important t
 | Persistence | SQLite via `sqflite` (app DB), `sqlite3` + `sqlite_vector` (vector store) |
 | LM Inference | llama.cpp via FFI (on-device SLM), ONNX Runtime (embeddings) |
 | Speech | Whisper.cpp (STT), Piper (local TTS), platform APIs (Android/iOS native STT/TTS) |
-| Cloud | Supabase (auth, Postgres, Edge Functions, storage) |
+| Cloud | Supabase (auth, Postgres, Edge Functions, Realtime, storage) |
+| Cloud Agents | Python (FastAPI, LangGraph, LiteLLM) on Cloud Run |
 | Networking | HTTP via `http`/`dio`, BLE via `flutter_blue_plus` |
 | Native | Kotlin (Android method channels), Swift (iOS method channels) |
 
@@ -329,14 +328,16 @@ The project spans 4 framework packages plus `humbl_core`:
 | Metric | Count |
 |--------|-------|
 | Framework packages | 4 (langchain_dart, langsmith_dart, litellm_dart, langchain_graph) |
-| Framework tests | 444 (166 + 109 + 113 + 56) |
+| Framework tests | 472 (175 + 128 + 113 + 56) |
 | Dart modules (humbl_core) | 31 |
 | Public exports (humbl_core) | 343 |
-| Unit tests (all packages) | 509+ |
-| Test files (all packages) | 101 |
+| Unit tests (all packages) | 700+ |
 | Platform manager interfaces | 21 |
 | Tools registered | 70+ |
-| LM connectors | 11 |
+| LM provider adapters | 12 |
+| Prebuilt agent patterns | 6 |
+| Cloud agent types | 28 |
+| App screens | 34 |
 | Callback handlers | 6 |
 | Native plugins (Kotlin) | 10 |
 | Native plugins (Swift) | 10 |

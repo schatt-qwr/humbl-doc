@@ -37,7 +37,7 @@ All four packages live under `packages/` in the repo root. They depend only on e
 
 ## langchain_dart — Core Framework
 
-The foundation package. Everything else builds on it. **166 tests** across 17+ test files.
+The foundation package. Everything else builds on it. **175 tests** across 17+ test files.
 
 ### Runnables (LCEL)
 
@@ -61,6 +61,7 @@ Built-in runnables:
 - `RunnablePick` — pick specific keys from map output
 - `RunnableEach` — apply a runnable to each element of a list input
 - `RunnableBinding` — wrap a runnable with pre-bound config
+- `RunnableGenerator` — wrap a generator function as a runnable
 
 ### Tools (BaseTool)
 
@@ -95,6 +96,7 @@ Base abstractions for conversation memory:
 - `BaseChatMessageHistory` — append/clear message sequences
 - `BufferMemory` — simple window buffer
 - `ConversationSummaryMemory` — progressive summarization memory that condenses older messages into a summary, keeping recent messages intact. Useful for long conversations that would exceed the context window.
+- `EntityMemory` — extracts and tracks named entities (people, places, projects) across conversations, maintaining an entity store that provides relevant entity context for each new message.
 
 Humbl's `IMemoryService` extends `BaseMemory`. `ConversationStore` implements `BaseChatMessageHistory` with SQLite persistence and session binding.
 
@@ -141,19 +143,21 @@ Humbl wires 6 callback handlers into this system:
 
 - `Prompt` / `ChatPrompt` — prompt templates with variable substitution
 - `FewShotPromptTemplate` — prompt template with formatted examples, enabling in-context learning by injecting example input/output pairs into the prompt
+- `PipelinePromptTemplate` — compose multiple prompt templates into a single prompt, useful for separating system instructions, context, and user input into maintainable pieces
 
 ### Other Modules
 
-- **Output Parsers** — `StringParser`, `JSONParser`, `ListParser`
+- **Output Parsers** — `StringParser`, `JSONParser`, `ListParser`, `XMLOutputParser`
 - **Documents** — `BaseDocument` with metadata
 - **Text Splitters** — `CharacterTextSplitter` for chunking
 - **Embeddings** — `BaseEmbedding` interface, `FakeEmbedding` for tests
 - **Vector Stores** — `BaseVectorStore`, `InMemoryVectorStore`
-- **Retrievers** — `BaseRetriever`, `VectorStoreRetriever`
+- **Retrievers** — `BaseRetriever`, `VectorStoreRetriever`, `ContextualCompressionRetriever` (with `ThresholdCompressor` and `TopKCompressor` for relevance filtering)
+- **Test Models** — `GenericFakeChatModel`, `FakeListChatModel`, `FakeStreamingListLLM` for deterministic testing
 
 ## langchain_graph — State Machines
 
-Port of LangGraph's StateGraph for building agent workflows. **109 tests** across 7+ test files.
+Port of LangGraph's StateGraph for building agent workflows. **128 tests** across 7+ test files.
 
 ### StateGraph
 
@@ -231,14 +235,28 @@ Persistence for graph state, enabling time-travel and recovery:
 
 - `BaseCheckpointSaver` — interface
 - `InMemorySaver` — for testing
+- `SqliteCheckpointSaver` — SQLite-backed persistence for production
+- `PostgresCheckpointSaver` — PostgreSQL-backed persistence for cloud/server deployments
 - `CheckpointID` — unique checkpoint identification
+- `NamespacedInMemoryStore` — cross-thread memory sharing between graph executions
 
 Humbl's `ICheckpointStore` extends the base saver for SQLite-backed persistence.
 
 ### Prebuilt Agents
 
+6 prebuilt agent patterns covering the most common multi-agent architectures:
+
+| Prebuilt | Pattern | Description |
+|----------|---------|-------------|
+| `createReactAgent` | ReAct | Reason + act loop. The standard single-agent pattern. |
+| `createSupervisor` | Supervisor | A supervisor agent orchestrates N worker agents, deciding which worker handles each step. |
+| `createSwarm` | Swarm | Peer-to-peer agent collaboration. Agents hand off to each other without a central coordinator. |
+| `createHandoffTool` | Handoff | Creates a tool that transfers control from one agent to another, used by Swarm and Supervisor patterns. |
+| `createPlanAndExecute` | Plan-and-Execute | Two-phase: a planner agent creates a step-by-step plan, then an executor agent carries out each step. |
+| `createHierarchicalAgent` | Hierarchical | Manager-worker tree. A top-level manager delegates to sub-managers who delegate to workers. |
+
+Supporting utilities:
 - `ToolNode` — executes tools from the registry
-- `create_react_agent` — ReAct agent template (reason + act loop)
 - `tools_condition` — routes based on whether the LM returned tool calls
 
 ### Runtime
@@ -275,23 +293,24 @@ Routing strategies:
 
 ### Providers
 
-11 provider adapters, all implementing `BaseProvider`. The original 4 (OpenAI, Anthropic, Ollama, Custom OpenAI) have been joined by 6 new providers:
+12 provider adapters, all implementing `BaseProvider`:
 
-| Provider | Protocol | Status |
-|----------|----------|--------|
-| OpenAI | OpenAI Chat Completions API | Original |
-| Anthropic | Anthropic Messages API | Original |
-| Ollama | Ollama REST API | Original |
-| Custom OpenAI | Configurable OpenAI-compatible | Original |
-| **Gemini** | Google Generative AI API | **New** |
-| **Azure OpenAI** | Azure OpenAI Service API | **New** |
-| **Bedrock** | AWS Bedrock Runtime API | **New** |
-| **Vertex AI** | Google Vertex AI API | **New** |
-| **Cohere** | Cohere API | **New** |
-| **HuggingFace** | Hugging Face Inference API | **New** |
-| OpenAI-compatible | Generic OpenAI-compatible endpoint | Original |
+| Provider | Protocol |
+|----------|----------|
+| OpenAI | OpenAI Chat Completions API |
+| Anthropic | Anthropic Messages API |
+| Gemini | Google Generative AI API |
+| Azure OpenAI | Azure OpenAI Service API |
+| Bedrock | AWS Bedrock Runtime API |
+| Vertex AI | Google Vertex AI API |
+| Cohere | Cohere API |
+| HuggingFace | Hugging Face Inference API |
+| Together AI | Together AI API |
+| Mistral | Mistral AI API |
+| Ollama | Ollama REST API |
+| Custom OpenAI | Configurable OpenAI-compatible endpoint |
 
-`Router.getProviderForModel` maps model prefixes to the correct provider adapter for all 11 providers.
+`Router.getProviderForModel` maps model prefixes to the correct provider adapter for all 12 providers.
 
 ### Async Completion Pipeline
 
@@ -315,10 +334,22 @@ Full embedding support with typed request/response models:
 - `SpendLog` — persistent spend tracking with SQLite
 - `BudgetManager` — enforces spending budgets with rolling window support. Prevents exceeding configured cost limits per time period.
 
+### Image Generation
+
+Typed request/response models for image generation:
+
+- `ImageGenerationRequest` — prompt, model, size, quality, and style parameters
+- `ImageGenerationResponse` — generated image URLs or base64 data
+
+### Request Logging
+
+- `RequestLog` — structured log of every completion request with latency percentiles (p50, p95, p99) for observability and debugging
+
 ### Cooldown & Caching
 
 - `CooldownManager` — tracks provider failures with failure counting and exponential backoff. Enhanced with per-provider cooldown tracking.
 - `BaseCache` / `MemoryCache` — response caching for identical requests
+- `RedisResponseCache` — pluggable Redis-based cache adapter for distributed deployments
 
 Humbl's `HumblChatModel` (extends `BaseChatModel` from `langchain_dart`) is the single entry point for LLM calls. It uses `addProvider(Deployment, CompletionFunction)` to register providers and delegates to the Router for selection and routing.
 
@@ -359,6 +390,7 @@ Test case management for evaluation workflows:
 ### Evaluation
 
 - `evaluate()` — runs a target function against a `Dataset`, applies `RunEvaluator` instances, and returns `EvaluationResults` with `averageScore`
+- `evaluateComparative()` — A/B model testing. Runs two target functions against the same dataset and compares results with pairwise evaluators.
 - `RunEvaluator` — scores runs against criteria
 - `EvaluationResult` — structured evaluation output with score, key, and comment
 
@@ -413,14 +445,14 @@ graph TB
 
 ## Testing
 
-All framework packages have independent test suites. Total: **444 tests** across all 4 packages (up from 314 before the 1:1 port completion).
+All framework packages have independent test suites. Total: **472 tests** across all 4 packages (up from 314 at the start of the port effort).
 
 | Package | Tests | Test Files | Key Tests |
 |---------|-------|-----------|-----------|
-| `langchain_dart` | 166 | 17+ | LCEL chains, tool rendering, memory (buffer + summary), callbacks, vector stores, message utilities, new runnables |
-| `langchain_graph` | 109 | 7+ | StateGraph compilation, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, channels, checkpointing |
-| `litellm_dart` | 113 | 7+ | Router strategies, all 11 provider adapters, cost calculation, cooldown, embedding API, budget manager, acompletion pipeline |
-| `langsmith_dart` | 56 | 4+ | Client CRUD, tracers (console, confidential, metrics, LangChainTracer), evaluate() with datasets, run/dataset/example lifecycle |
+| `langchain_dart` | 175 | 17+ | LCEL chains, runnables (Assign/Pick/Each/Binding/Generator), tool rendering, memory (buffer + summary + entity), callbacks, vector stores, message utilities, few-shot prompts, contextual compression retriever, XML parser, fake models |
+| `langchain_graph` | 128 | 7+ | StateGraph compilation, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, channels, checkpointing (SQLite + Postgres), prebuilt agents (supervisor, swarm, handoff, plan-and-execute, hierarchical) |
+| `litellm_dart` | 113 | 7+ | Router strategies, all 12 provider adapters, cost calculation, cooldown, embedding API, image generation types, budget manager, acompletion pipeline, Redis cache, request logging |
+| `langsmith_dart` | 56 | 4+ | Client HTTP API with pluggable transport, LangChainTracer, run/dataset/example CRUD, evaluate() with datasets, evaluateComparative() for A/B testing |
 
 Tests run with `dart test` (no Flutter required). All use in-memory implementations — no external services needed.
 
