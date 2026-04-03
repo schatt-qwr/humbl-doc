@@ -13,10 +13,10 @@ Humbl's AI layer is built on native Dart ports of four industry-standard Python 
 
 | Package | Port of | What It Provides |
 |---------|---------|-----------------|
-| [`langchain_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_dart) | LangChain | Runnables (LCEL), tools (`BaseTool`), memory, callbacks, prompts, retrievers, vector stores |
-| [`langchain_graph`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_graph) | LangGraph | `StateGraph`, channels, checkpointing, prebuilt agents (ReAct), graph runtime |
-| [`litellm_dart`](https://github.com/qwr-app/humbl/tree/main/packages/litellm_dart) | LiteLLM | Multi-provider `Router`, 11 provider adapters, cost tracking, token counting, cooldown |
-| [`langsmith_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langsmith_dart) | LangSmith | Tracing (`BaseTracer`), evaluation (`RunEvaluator`), feedback, metrics |
+| [`langchain_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_dart) | LangChain | Runnables (LCEL + Assign/Pick/Each/Binding), tools (`BaseTool`), memory (buffer + summary), callbacks, prompts (few-shot), messages (merge/trim/filter), retrievers, vector stores |
+| [`langchain_graph`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_graph) | LangGraph | `StateGraph`, superstep execution, `Send` fan-out, fan-in barriers, subgraph composition, `MessageGraph`, channels, checkpointing, prebuilt agents (ReAct), graph runtime |
+| [`litellm_dart`](https://github.com/qwr-app/humbl/tree/main/packages/litellm_dart) | LiteLLM | Multi-provider `Router`, 11 provider adapters (incl. Gemini, Azure, Bedrock, Vertex AI, Cohere, HuggingFace), embedding API, cost tracking, budget manager, `acompletion()` pipeline |
+| [`langsmith_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langsmith_dart) | LangSmith | `Client` (HTTP API), `LangChainTracer`, run/dataset/example CRUD, `evaluate()` with scoring, tracing, feedback, metrics |
 
 These are **not wrappers** — they are full Dart reimplementations following the same interfaces as their Python counterparts. All Humbl features are extensions of these ports:
 
@@ -24,7 +24,8 @@ These are **not wrappers** — they are full Dart reimplementations following th
 - `IMemoryService` extends `BaseMemory` (from `langchain_dart`)
 - `ConversationStore` implements `BaseChatMessageHistory` (from `langchain_dart`)
 - The pipeline uses `StateGraph` (from `langchain_graph`)
-- `HumblLmGateway` uses the `Router` (from `litellm_dart`)
+- `HumblChatModel` extends `BaseChatModel` (from `langchain_dart`) as the single LM entry point
+- `HumblChatModel` delegates to the `Router` (from `litellm_dart`) for provider selection
 - 6 callback handlers extend `BaseCallbackHandler` (from `langchain_dart`)
 - `ConfidentialTracer` and `MetricsTracer` extend `BaseTracer` (from `langsmith_dart`)
 
@@ -174,10 +175,10 @@ humbl-doc/              Documentation — this site
 
 | Package | Language | Status | Purpose |
 |---------|----------|--------|---------|
-| `langchain_dart` | Dart | **Active** — 17 test files | LangChain Core — runnables, tools, memory, callbacks, prompts, vector stores |
-| `langsmith_dart` | Dart | **Active** — 4 test files | LangSmith — tracing, evaluation, feedback, metrics |
-| `litellm_dart` | Dart | **Active** — 7 test files | LiteLLM — Router, 11 providers, cost tracking, token counting |
-| `langchain_graph` | Dart | **Active** — 7 test files | LangGraph — StateGraph, channels, checkpointing, ReAct agent |
+| `langchain_dart` | Dart | **Active** — 166 tests | LangChain Core — runnables (LCEL + Assign/Pick/Each), tools, memory (buffer + summary), callbacks, prompts (few-shot), messages (merge/trim/filter), vector stores |
+| `langsmith_dart` | Dart | **Active** — 56 tests | LangSmith — Client API, LangChainTracer, run/dataset/example CRUD, evaluate(), tracing, feedback, metrics |
+| `litellm_dart` | Dart | **Active** — 113 tests | LiteLLM — Router, 11 providers (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace), embedding API, budget manager, acompletion pipeline |
+| `langchain_graph` | Dart | **Active** — 109 tests | LangGraph — StateGraph, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, checkpointing, ReAct agent |
 | `humbl_core` | Dart | **Active** — 31 modules, 343 exports, 509 tests | All interfaces, pipeline, tools, memory, security, platform managers, devices SDK |
 | `humbl_app` | Dart/Flutter | **Active** — wiring done, screens pending | Startup sequence (20-step wiring), BLoC state management (15 planned), 28+ screens (pending) |
 | `humbl_lm` | Dart | **Scaffolded** | LLM provider implementations — concrete connectors for OpenAI, Anthropic, Gemini, etc. |
@@ -299,11 +300,11 @@ The diagram above shows dependency arrows, but the narrative is more important t
 
 | Subsystem | Key Classes | Role |
 |-----------|------------|------|
-| **Pipeline** | `PipelineOrchestrator`, `StateGraph`, `PipelineState` | LangGraph-compatible deterministic router. Processes every user utterance through a fixed node graph. No LLM in routing. |
+| **Pipeline** | `PipelineOrchestrator`, `buildHumblPipeline()`, `StateGraph` (langchain_graph) | LangGraph-based deterministic router. 4-node graph (classify, route, execute, deliver). No LLM in routing. |
 | **Tool System** | `HumblTool`, `ToolRegistry`, `createToolRegistry()` | MCP-compatible registry with 70+ tools across 16 domain files. Five-gate security template. |
 | **Permissions** | `AccessControl`, `ToolStateManager`, `IPermissionService` | Three-layer access model: OS permissions, tool state probing, caller privilege math. |
 | **Platform Managers** | `PlatformFactory`, 21 `I*Manager` interfaces | Per-platform implementations for WiFi, BLE, camera, mic, contacts, notifications, etc. |
-| **LM Gateway** | `HumblLmGateway`, `LmProviderRegistry`, `ConnectorRegistry` | Routes LM requests to the best provider (on-device, local network, BYOK, app cloud). |
+| **LM Gateway** | `HumblChatModel`, `ConnectorRegistry`, litellm `Router` | Single LM entry point (`HumblChatModel extends BaseChatModel`). Routes requests via litellm Router to the best provider (on-device, local network, BYOK, app cloud). |
 | **Memory** | `SqliteMemoryService`, `SqliteVecStore`, `ConversationStore` | T2 key-value, T3 vector similarity (ONNX embeddings), T4 interaction log. |
 | **Devices SDK** | `DeviceRegistry`, `IPeripheralProvider`, `IConnectedDevice` | Provider-based abstraction for smart glasses. Built-in: Even G1, Frame, Humbl Glasses, Simulated. |
 | **Voice I/O** | `VoiceSessionRunner`, `IVadEngine`, `ISttProvider`, `ITtsProvider` | Full voice pipeline: wake word, VAD, speech-to-text, pipeline dispatch, text-to-speech. |
@@ -328,6 +329,7 @@ The project spans 4 framework packages plus `humbl_core`:
 | Metric | Count |
 |--------|-------|
 | Framework packages | 4 (langchain_dart, langsmith_dart, litellm_dart, langchain_graph) |
+| Framework tests | 444 (166 + 109 + 113 + 56) |
 | Dart modules (humbl_core) | 31 |
 | Public exports (humbl_core) | 343 |
 | Unit tests (all packages) | 509+ |

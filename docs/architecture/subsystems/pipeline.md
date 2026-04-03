@@ -7,8 +7,8 @@ title: Pipeline
 
 The Humbl pipeline is a **LangGraph-compatible deterministic router** implemented in pure Dart. No LLM is involved in routing decisions -- nodes and edges are static, testable, and zero token cost. The LM is only invoked inside `ClassifyNode` for intent classification; all other routing is rule-based.
 
-:::info Current State vs Target
-The pipeline currently uses a **custom `StateGraph` implementation in pure Dart** (`humbl_core/lib/pipeline/state_graph.dart`) that follows LangGraph's patterns but is not the same class as `langchain_graph`'s `StateGraph`. **SP6 (Pipeline Refactor)** will migrate to using `langchain_graph`'s `StateGraph` directly, gaining channels, checkpointing, and the Pregel execution engine. SP6 is now unblocked after SP7 (LM Gateway) completion.
+:::tip SP6 Complete
+The pipeline has been migrated from a custom 7-node graph to a 4-node `buildHumblPipeline()` using `langchain_graph`'s `StateGraph`. The pipeline now uses channels, checkpointing, and the superstep execution engine from the framework package. `PipelineState` has been deleted (326 lines removed) and replaced by the graph's channel-based state. `createToolsNode` delegates to the framework's `ToolNode`, and `ICheckpointStore` extends `BaseCheckpointSaver`.
 :::
 
 ## Why Deterministic Routing?
@@ -34,45 +34,42 @@ The pipeline deliberately separates **routing** (what to do next) from **inferen
 
 The orchestrator wires these into a `StateGraph` of `GraphNode`s connected by direct and conditional edges. Once constructed, it exposes two methods: `run()` (returns final state) and `runStream()` (yields state after each node for UI progress indicators).
 
-## StateGraph Engine (Custom — SP6 Will Migrate to langchain_graph)
+## StateGraph Engine (langchain_graph)
 
-`StateGraph` is a custom graph execution engine implemented in pure Dart, inspired by LangGraph's state machine pattern. It follows the same concepts (nodes, edges, conditional routing, immutable state) but is a separate implementation from `langchain_graph`'s `StateGraph`.
-
-**Why custom?** The pipeline was built before the `langchain_graph` package existed in Dart. SP6 will migrate to `langchain_graph`'s `StateGraph`, gaining channels (`LastValueChannel`, `BinaryOperatorAggregateChannel`), `BaseCheckpointSaver` for persistence, `GraphRuntime` with Dart Zones, and `ToolNode` / `create_react_agent` prebuilts.
-
-It supports two types of edges:
-
-- **Direct edges** -- unconditional transitions between nodes
-- **Conditional edges** -- a function evaluates `PipelineState` and returns the next node name (or `null` for implicit end)
+The pipeline uses `langchain_graph`'s `StateGraph` directly, built via `buildHumblPipeline()`. The graph has 4 nodes (down from the original 7) connected by direct and conditional edges:
 
 ```dart
-final graph = StateGraph()
-  ..addNode(ContextAssemblyNode(memoryService))
-  ..addNode(ClassifyNode(gateway))
-  ..addNode(RouteDecisionNode())
-  ..addNode(ExecuteToolNode(toolRegistry))
-  ..addNode(DeliverNode(memoryService))
-  ..addNode(LoopCheckNode())
-  ..addEdge(Edge.direct(from: 'context_assembly', to: 'classify'))
-  ..addEdge(Edge.conditional(
-    from: 'route_decision',
-    condition: (s) => switch (s.routeDecision) {
-      ExecutionPath.fast => 'execute_tool',
-      ExecutionPath.slmLoop => 'ask_user',
-      _ => 'execute_tool',
-    },
-  ))
-  ..setEntryPoint('context_assembly')
-  ..setMaxSteps(20);
+final graph = StateGraph<HumblGraphState>(HumblGraphState.new)
+  ..addNode('classify', classifyNode)
+  ..addNode('route', routeDecisionNode)
+  ..addNode('execute', createToolsNode(toolRegistry))
+  ..addNode('deliver', deliverNode)
+  ..addEdge(start, 'classify')
+  ..addEdge('classify', 'route')
+  ..addConditionalEdges('route', routeCondition, {
+    'tool_call': 'execute',
+    'direct_response': 'deliver',
+  })
+  ..addEdge('execute', 'deliver')
+  ..addEdge('deliver', end);
+
+final compiled = graph.compile(checkpointer: checkpointSaver);
+final result = await compiled.invoke(initialState);
 ```
+
+Key changes from the SP6 migration:
+- `PipelineState` deleted — state is now managed through `langchain_graph` channels
+- `createToolsNode` delegates to the framework's `ToolNode` for tool execution
+- `ICheckpointStore` extends `BaseCheckpointSaver` for SQLite-backed graph persistence
+- Superstep execution enables parallel node execution where dependencies allow
 
 Safety features built into the engine:
 
 | Feature | Implementation |
 |---------|---------------|
-| Loop prevention | `setMaxSteps(20)` -- pipeline aborts if step count exceeded |
+| Loop prevention | Graph max recursion limit via `compile()` config |
 | Cooperative cancellation | `CancellationToken` checked before each node |
-| Node timeout | Optional `Duration` per-node, throws `TimeoutException` |
+| Checkpointing | `BaseCheckpointSaver` for state recovery and time-travel |
 | Checkpointing | `onCheckpoint` callback after each node for crash recovery |
 | Interrupts | `Stream<PipelineInterrupt>` checked before each node (UserCancel, ExternalEvent, SystemAlert) |
 

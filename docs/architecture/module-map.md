@@ -11,12 +11,12 @@ Complete inventory of all packages and modules in the Humbl project. The project
 
 These are Dart ports of industry-standard Python AI frameworks. They have **no Flutter dependency** and can be used in any Dart project.
 
-| Package | Port of | Modules | Test Files | Key Exports |
-|---------|---------|---------|-----------|-------------|
-| `langchain_dart` | LangChain | 14 | 17 | `BaseRunnable`, `BaseTool`, `BaseMemory`, `BaseChatMessageHistory`, `BaseCallbackHandler`, `BaseEmbedding`, `BaseVectorStore`, `BaseRetriever` |
-| `langsmith_dart` | LangSmith | 5 | 4 | `Run`, `BaseTracer`, `InMemoryTracer`, `ConsoleTracer`, `RunEvaluator`, `Dataset` |
-| `litellm_dart` | LiteLLM | 8 | 7 | `Router`, `BaseProvider`, `TokenCounter`, `CostCalculator`, `SpendLog`, `CooldownManager` |
-| `langchain_graph` | LangGraph | 11 | 7 | `StateGraph`, `CompiledStateGraph`, `BaseChannel`, `BaseCheckpointSaver`, `ToolNode`, `create_react_agent` |
+| Package | Port of | Modules | Tests | Key Exports |
+|---------|---------|---------|-------|-------------|
+| `langchain_dart` | LangChain | 14 | 166 | `BaseRunnable`, `RunnableAssign`, `RunnablePick`, `RunnableEach`, `RunnableBinding`, `BaseTool`, `ToolException`, `BaseMemory`, `ConversationSummaryMemory`, `BaseChatMessageHistory`, `BaseCallbackHandler`, `RunManager`, `BaseChatModel`, `BaseLLM`, `FewShotPromptTemplate`, `RemoveMessage`, `FunctionMessage`, `merge_message_runs`, `trim_messages`, `filter_messages`, `BaseEmbedding`, `BaseVectorStore`, `BaseRetriever` |
+| `langsmith_dart` | LangSmith | 5 | 56 | `Client`, `Run`, `BaseTracer`, `InMemoryTracer`, `ConsoleTracer`, `LangChainTracer`, `RunEvaluator`, `EvaluationResults`, `Dataset`, `Example` |
+| `litellm_dart` | LiteLLM | 8 | 113 | `Router`, `BaseProvider`, `GeminiProvider`, `AzureOpenAIProvider`, `BedrockProvider`, `VertexAIProvider`, `CohereProvider`, `HuggingFaceProvider`, `TokenCounter`, `CostCalculator`, `SpendLog`, `CooldownManager`, `BudgetManager`, `EmbeddingRequest`, `EmbeddingResponse`, `acompletion`, `createCompletionFunction` |
+| `langchain_graph` | LangGraph | 11 | 109 | `StateGraph`, `CompiledStateGraph`, `MessageGraph`, `Send`, `addWaitingEdge`, `addSubgraph`, `BaseChannel`, `BaseCheckpointSaver`, `ToolNode`, `create_react_agent` |
 
 ### langchain_dart Modules
 
@@ -25,36 +25,37 @@ These are Dart ports of industry-standard Python AI frameworks. They have **no F
 | `callbacks` | `BaseCallbackHandler`, `CallbackManager`, `StdoutCallbackHandler` | Event-driven hooks into execution lifecycle |
 | `documents` | `BaseDocument` | Document abstraction with metadata |
 | `embeddings` | `BaseEmbedding`, `FakeEmbedding` | Embedding provider interface |
-| `language_models` | `BaseLanguageModel`, `BaseChatModel`, `FakeLanguageModel` | LLM base classes |
-| `memory` | `BaseMemory`, `BaseChatMessageHistory`, `BufferMemory` | Conversation memory stores |
-| `messages` | `HumanMessage`, `AIMessage`, `SystemMessage`, `ToolMessage` | Message types |
+| `language_models` | `BaseLanguageModel`, `BaseChatModel`, `BaseLLM`, `FakeLanguageModel`, `RunManager` | LLM base classes (chat and text-completion) |
+| `memory` | `BaseMemory`, `BaseChatMessageHistory`, `BufferMemory`, `ConversationSummaryMemory` | Conversation memory stores |
+| `messages` | `HumanMessage`, `AIMessage`, `SystemMessage`, `ToolMessage`, `FunctionMessage`, `RemoveMessage`, `merge_message_runs`, `trim_messages`, `filter_messages` | Message types and utilities |
 | `output_parsers` | `StringParser`, `JSONParser`, `ListParser` | LLM output parsing |
-| `prompts` | `Prompt`, `ChatPrompt` | Prompt templates with variable substitution |
+| `prompts` | `Prompt`, `ChatPrompt`, `FewShotPromptTemplate` | Prompt templates with variable substitution and few-shot examples |
 | `retrievers` | `BaseRetriever`, `VectorStoreRetriever` | Retriever interface |
-| `runnables` | `BaseRunnable`, `LambdaRunnable`, `SequenceRunnable`, `ParallelRunnable`, `BranchRunnable`, `RetryRunnable`, `FallbackRunnable` | LCEL composable units |
+| `runnables` | `BaseRunnable`, `LambdaRunnable`, `SequenceRunnable`, `ParallelRunnable`, `BranchRunnable`, `RetryRunnable`, `FallbackRunnable`, `RunnableAssign`, `RunnablePick`, `RunnableEach`, `RunnableBinding` | LCEL composable units |
 | `stores` | `BaseStore`, `InMemoryStore` | Key-value stores |
 | `text_splitters` | `CharacterTextSplitter` | Document chunking |
-| `tools` | `BaseTool`, `StructuredTool` | Tool definitions |
+| `tools` | `BaseTool`, `StructuredTool`, `ToolException` | Tool definitions |
 | `vectorstores` | `BaseVectorStore`, `InMemoryVectorStore` | Vector database interface |
 
 ### litellm_dart Modules
 
 | Module | Key Classes | Description |
 |--------|------------|-------------|
-| `providers` | `BaseProvider`, `OpenAIProvider`, `AnthropicProvider`, `OllamaProvider`, `CustomOpenAIProvider` | 11 provider adapters |
+| `providers` | `BaseProvider`, `OpenAIProvider`, `AnthropicProvider`, `GeminiProvider`, `AzureOpenAIProvider`, `BedrockProvider`, `VertexAIProvider`, `CohereProvider`, `HuggingFaceProvider`, `OllamaProvider`, `CustomOpenAIProvider` | 11 provider adapters |
 | `router` | `Router`, `Deployment`, `CooldownManager` | Multi-provider routing with 5 strategies |
-| `cost` | `CostCalculator`, `ModelPrices`, `SpendLog` | Cost tracking and spend logging |
+| `cost` | `CostCalculator`, `ModelPrices`, `SpendLog`, `BudgetManager` | Cost tracking, spend logging, and budget enforcement |
 | `token_counter` | `TokenCounter` | Per-provider token counting |
+| `embedding` | `EmbeddingRequest`, `EmbeddingResponse`, `EmbeddingData`, `EmbeddingUsage` | Embedding API types |
 | `cache` | `BaseCache`, `MemoryCache` | Response caching |
 | `types` | `CompletionRequest`, `CompletionResponse` | Request/response models |
 | `exceptions` | Custom exception hierarchy | Provider-specific errors |
-| `main` | `prepareCompletion` | Entry point |
+| `main` | `acompletion`, `createCompletionFunction` | Async completion pipeline and CompletionFunction bridge |
 
 ### langchain_graph Modules
 
 | Module | Key Classes | Description |
 |--------|------------|-------------|
-| `graph` | `StateGraph`, `CompiledStateGraph`, `MessageGraph` | Graph builder and executor |
+| `graph` | `StateGraph`, `CompiledStateGraph`, `MessageGraph`, `Send`, `addWaitingEdge`, `addSubgraph` | Graph builder and executor with superstep execution, fan-out/fan-in, and subgraph composition |
 | `channels` | `LastValueChannel`, `BinaryOperatorAggregateChannel`, `TopicChannel`, `EphemeralValueChannel` | State communication between nodes |
 | `checkpoint` | `BaseCheckpointSaver`, `InMemorySaver`, `CheckpointID` | Graph state persistence |
 | `prebuilt` | `ToolNode`, `create_react_agent`, `tools_condition` | Pre-built agent templates |

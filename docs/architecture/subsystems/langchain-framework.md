@@ -37,7 +37,7 @@ All four packages live under `packages/` in the repo root. They depend only on e
 
 ## langchain_dart — Core Framework
 
-The foundation package. Everything else builds on it.
+The foundation package. Everything else builds on it. **166 tests** across 17+ test files.
 
 ### Runnables (LCEL)
 
@@ -57,6 +57,10 @@ Built-in runnables:
 - `RetryRunnable` — automatic retry with backoff
 - `FallbackRunnable` — try alternatives on failure
 - `PassthroughRunnable` — identity pass-through
+- `RunnableAssign` — add computed keys to a map via `RunnableParallel`
+- `RunnablePick` — pick specific keys from map output
+- `RunnableEach` — apply a runnable to each element of a list input
+- `RunnableBinding` — wrap a runnable with pre-bound config
 
 ### Tools (BaseTool)
 
@@ -72,6 +76,17 @@ abstract class BaseTool<Input, Output> extends BaseRunnable<Input, Output> {
 
 Humbl's `HumblTool` extends `BaseTool` and adds the five-gate security template via `@nonVirtual`. Tool authors implement `runTool()`, and the framework handles policy, access control, permissions, quota, and resources.
 
+`ToolException` provides a typed exception for tool execution failures, distinct from general runtime errors.
+
+### Language Models
+
+Two abstract base classes for LLM providers:
+
+- `BaseChatModel` — chat-based LLMs (messages in, message out). Humbl's `HumblChatModel` extends this.
+- `BaseLLM` — text-completion LLMs (string in, string out). For non-chat models.
+
+`RunManager` provides a scoped callback context for individual runs, enabling per-invocation tracing and event handling.
+
 ### Memory
 
 Base abstractions for conversation memory:
@@ -79,8 +94,22 @@ Base abstractions for conversation memory:
 - `BaseMemory` — load/save context variables
 - `BaseChatMessageHistory` — append/clear message sequences
 - `BufferMemory` — simple window buffer
+- `ConversationSummaryMemory` — progressive summarization memory that condenses older messages into a summary, keeping recent messages intact. Useful for long conversations that would exceed the context window.
 
 Humbl's `IMemoryService` extends `BaseMemory`. `ConversationStore` implements `BaseChatMessageHistory` with SQLite persistence and session binding.
+
+### Messages
+
+Core message types with utilities for message list manipulation:
+
+- `HumanMessage`, `AIMessage`, `SystemMessage`, `ToolMessage` — standard message types
+- `FunctionMessage` — deprecated OpenAI function calling message type (retained for backward compatibility)
+- `RemoveMessage` — control message that removes a message by ID from the `addMessages` reducer in `langchain_graph` channels
+
+Message utilities:
+- `merge_message_runs()` — merge consecutive same-type messages into a single message
+- `trim_messages()` — trim a message list to fit a token budget (supports `last` and `first` strategies)
+- `filter_messages()` — filter messages by type, name, or ID
 
 ### Callbacks
 
@@ -108,10 +137,13 @@ Humbl wires 6 callback handlers into this system:
 | `QuotaCallbackHandler` | Gate 5 | Token/credit quota enforcement |
 | `ToolFilterCallbackHandler` | — | Keyword-based tool group selection |
 
+### Prompts
+
+- `Prompt` / `ChatPrompt` — prompt templates with variable substitution
+- `FewShotPromptTemplate` — prompt template with formatted examples, enabling in-context learning by injecting example input/output pairs into the prompt
+
 ### Other Modules
 
-- **Messages** — `HumanMessage`, `AIMessage`, `SystemMessage`, `ToolMessage`
-- **Prompts** — `Prompt`, `ChatPrompt` with variable substitution
 - **Output Parsers** — `StringParser`, `JSONParser`, `ListParser`
 - **Documents** — `BaseDocument` with metadata
 - **Text Splitters** — `CharacterTextSplitter` for chunking
@@ -121,7 +153,7 @@ Humbl wires 6 callback handlers into this system:
 
 ## langchain_graph — State Machines
 
-Port of LangGraph's StateGraph for building agent workflows.
+Port of LangGraph's StateGraph for building agent workflows. **109 tests** across 7+ test files.
 
 ### StateGraph
 
@@ -141,6 +173,48 @@ final graph = StateGraph<AgentState>(AgentState.new)
 final compiled = graph.compile();
 final result = await compiled.invoke(initialState);
 ```
+
+### Superstep Execution Engine
+
+`CompiledStateGraph` executes nodes in **parallel supersteps** using `Future.wait`. Nodes within the same superstep that have no data dependencies run concurrently, improving throughput for graphs with parallelizable work. This replaces the old sequential execution loop.
+
+### Send for Parallel Routing (Fan-Out)
+
+A `ConditionFunction` can return `List<Send>` to fan-out execution to multiple nodes, each with custom state:
+
+```dart
+graph.addConditionalEdges('router', (state) {
+  return [
+    Send('summarize', {'doc': state['doc1']}),
+    Send('summarize', {'doc': state['doc2']}),
+    Send('summarize', {'doc': state['doc3']}),
+  ];
+});
+```
+
+Conditional edges now support returning `dynamic` — a `String` (single target), `List<String>` (multiple targets with shared state), `Send` (single target with custom state), or `List<Send>` (fan-out with per-target state).
+
+### Fan-In with addWaitingEdge
+
+`addWaitingEdge` creates a fan-in barrier: the target node waits for **all** source nodes to complete before executing. This is the complement to `Send` fan-out:
+
+```dart
+graph.addWaitingEdge('summarize', 'aggregate');
+// 'aggregate' only runs after all 'summarize' instances finish
+```
+
+### Subgraph Composition
+
+`addSubgraph()` allows a compiled graph to be used as a node in a parent graph. The subgraph runs its full execution cycle and outputs its final state. Subgraph output uses `seedDynamic` (replacement), not `updateDynamic` (reducer), to avoid double-application of reducers.
+
+```dart
+final innerGraph = innerBuilder.compile();
+outerGraph.addSubgraph('inner_step', innerGraph);
+```
+
+### MessageGraph
+
+`MessageGraph` is a convenience `StateGraph` with a single `'messages'` channel using the `addMessages` reducer. Designed for simple chatbot patterns where the entire state is the message history.
 
 ### Channels
 
@@ -173,7 +247,7 @@ Humbl's `ICheckpointStore` extends the base saver for SQLite-backed persistence.
 
 ## litellm_dart — Multi-Provider Gateway
 
-Port of LiteLLM's unified LLM interface with routing and cost tracking.
+Port of LiteLLM's unified LLM interface with routing and cost tracking. **113 tests** across 7+ test files.
 
 ### Router
 
@@ -201,38 +275,60 @@ Routing strategies:
 
 ### Providers
 
-11 provider adapters, all implementing `BaseProvider`:
+11 provider adapters, all implementing `BaseProvider`. The original 4 (OpenAI, Anthropic, Ollama, Custom OpenAI) have been joined by 6 new providers:
 
-| Provider | Protocol |
-|----------|----------|
-| OpenAI | OpenAI Chat Completions API |
-| Anthropic | Anthropic Messages API |
-| Gemini | Google Generative AI API |
-| Mistral | Mistral API |
-| xAI | xAI Grok API |
-| Cohere | Cohere API |
-| Sarvam | Sarvam AI API |
-| Ollama | Ollama REST API |
-| LM Studio | OpenAI-compatible (localhost) |
-| OpenAI-compatible | Generic OpenAI-compatible endpoint |
-| Custom OpenAI | Configurable OpenAI-compatible |
+| Provider | Protocol | Status |
+|----------|----------|--------|
+| OpenAI | OpenAI Chat Completions API | Original |
+| Anthropic | Anthropic Messages API | Original |
+| Ollama | Ollama REST API | Original |
+| Custom OpenAI | Configurable OpenAI-compatible | Original |
+| **Gemini** | Google Generative AI API | **New** |
+| **Azure OpenAI** | Azure OpenAI Service API | **New** |
+| **Bedrock** | AWS Bedrock Runtime API | **New** |
+| **Vertex AI** | Google Vertex AI API | **New** |
+| **Cohere** | Cohere API | **New** |
+| **HuggingFace** | Hugging Face Inference API | **New** |
+| OpenAI-compatible | Generic OpenAI-compatible endpoint | Original |
+
+`Router.getProviderForModel` maps model prefixes to the correct provider adapter for all 11 providers.
+
+### Async Completion Pipeline
+
+`acompletion()` provides the full async completion pipeline: prepare request, HTTP call, transform response, track spend, enforce budget. This is the primary entry point for making LLM calls through the Router.
+
+`createCompletionFunction()` bridges an `HttpPostFunction` to a `CompletionFunction`, enabling the Router to use any HTTP transport for completions.
+
+### Embedding API
+
+Full embedding support with typed request/response models:
+
+- `EmbeddingRequest` — input text(s) + model specification
+- `EmbeddingResponse` — vector output with usage metadata
+- `EmbeddingData` — individual embedding vectors
+- `EmbeddingUsage` — token consumption for embedding calls
 
 ### Cost Tracking
 
 - `TokenCounter` — per-provider token counting
 - `CostCalculator` — maps tokens to cost using `ModelPrices`
 - `SpendLog` — persistent spend tracking with SQLite
+- `BudgetManager` — enforces spending budgets with rolling window support. Prevents exceeding configured cost limits per time period.
 
 ### Cooldown & Caching
 
-- `CooldownManager` — tracks provider failures, backs off automatically
+- `CooldownManager` — tracks provider failures with failure counting and exponential backoff. Enhanced with per-provider cooldown tracking.
 - `BaseCache` / `MemoryCache` — response caching for identical requests
 
-Humbl's `HumblLmGateway` wraps the LiteLLM Router and integrates it with the five-gate security model, adding latency tracking and request metrics per deployment.
+Humbl's `HumblChatModel` (extends `BaseChatModel` from `langchain_dart`) is the single entry point for LLM calls. It uses `addProvider(Deployment, CompletionFunction)` to register providers and delegates to the Router for selection and routing.
 
 ## langsmith_dart — Observability
 
-Port of LangSmith's tracing and evaluation for LLM applications.
+Port of LangSmith's tracing and evaluation for LLM applications. **56 tests** across 4+ test files.
+
+### Client
+
+`Client` is the HTTP client for the LangSmith API with pluggable transport and `x-api-key` authentication. It provides typed methods for all CRUD operations and evaluation workflows.
 
 ### Tracers
 
@@ -242,15 +338,29 @@ All tracers implement `BaseTracer` and receive callback events:
 |--------|---------|
 | `ConsoleTracer` | Human-readable console output for debugging |
 | `InMemoryTracer` | Captures runs in memory for testing |
+| `LangChainTracer` | Persists runs to the LangSmith API via `Client`, enriches with project metadata |
 | `ConfidentialTracer` | Encrypts PII fields before logging (Humbl extension) |
 | `MetricsTracer` | Aggregates latency, token count, error rate metrics (Humbl extension) |
 
+### Run CRUD
+
+Full lifecycle management for execution traces:
+
+- `createRun` / `readRun` / `updateRun` / `deleteRun` — individual run operations
+- `listRuns` — query runs with filters (project, run type, date range)
+
+### Dataset & Example CRUD
+
+Test case management for evaluation workflows:
+
+- `createDataset` / `readDataset` / `updateDataset` / `deleteDataset` / `listDatasets`
+- `createExample` / `updateExample` / `deleteExample` / `listExamples`
+
 ### Evaluation
 
+- `evaluate()` — runs a target function against a `Dataset`, applies `RunEvaluator` instances, and returns `EvaluationResults` with `averageScore`
 - `RunEvaluator` — scores runs against criteria
-- `EvaluationResult` — structured evaluation output
-- `Dataset` / `Example` — test case management
-- `InMemoryDatasetStore` — dataset storage for testing
+- `EvaluationResult` — structured evaluation output with score, key, and comment
 
 ### Data Models
 
@@ -291,8 +401,8 @@ graph TB
 | Humbl Component | Extends | What It Adds |
 |----------------|---------|-------------|
 | `HumblTool` | `BaseTool` | Five-gate security, MCP schema, streaming, confirmation |
-| `PipelineOrchestrator` | Uses `StateGraph` | 7 specialized nodes, concurrent runs, cancellation |
-| `HumblLmGateway` | Uses `Router` | Policy-based provider selection, latency tracking |
+| `PipelineOrchestrator` | Uses `StateGraph` | 4 nodes (classify, route, execute, deliver), concurrent runs, cancellation |
+| `HumblChatModel` | `BaseChatModel` | Single LM entry point with `addProvider()`, delegates to Router |
 | `IMemoryService` | `BaseMemory` | T2-T4 hierarchy, importance scoring, SQLite |
 | `ConversationStore` | `BaseChatMessageHistory` | Session binding, SQLite persistence |
 | `IVectorStore` | `VectorStore` | SQLite + sqlite_vector, ONNX embeddings |
@@ -303,14 +413,14 @@ graph TB
 
 ## Testing
 
-All framework packages have independent test suites:
+All framework packages have independent test suites. Total: **444 tests** across all 4 packages (up from 314 before the 1:1 port completion).
 
-| Package | Test Files | Key Tests |
-|---------|-----------|-----------|
-| `langchain_dart` | 17 | LCEL chains, tool rendering, memory, callbacks, vector stores |
-| `langsmith_dart` | 4 | Tracers, evaluation, dataset management |
-| `litellm_dart` | 7 | Router strategies, provider adapters, cost calculation |
-| `langchain_graph` | 7 | StateGraph compilation, channels, checkpointing |
+| Package | Tests | Test Files | Key Tests |
+|---------|-------|-----------|-----------|
+| `langchain_dart` | 166 | 17+ | LCEL chains, tool rendering, memory (buffer + summary), callbacks, vector stores, message utilities, new runnables |
+| `langchain_graph` | 109 | 7+ | StateGraph compilation, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, channels, checkpointing |
+| `litellm_dart` | 113 | 7+ | Router strategies, all 11 provider adapters, cost calculation, cooldown, embedding API, budget manager, acompletion pipeline |
+| `langsmith_dart` | 56 | 4+ | Client CRUD, tracers (console, confidential, metrics, LangChainTracer), evaluate() with datasets, run/dataset/example lifecycle |
 
 Tests run with `dart test` (no Flutter required). All use in-memory implementations — no external services needed.
 

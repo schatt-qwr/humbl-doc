@@ -28,20 +28,24 @@ The gateway solves three problems:
 
 **Tier-gated access.** Free tier users can only use on-device and local network providers. Standard/Plus/Ultimate subscribers can use cloud providers. The gateway enforces these constraints before even passing the request to the Router, so a free user's query never accidentally hits a paid cloud API.
 
-## ILmGateway
+## HumblChatModel — Single Entry Point
 
-The top-level interface is minimal:
+As of the ILmGateway collapse, `HumblChatModel` (extends `BaseChatModel` from `langchain_dart`) is the **single entry point** for all LLM calls. It replaces the old `ILmGateway` interface:
 
 ```dart
-abstract class ILmGateway {
-  Future<LmGatewayResponse> complete(LmGatewayRequest request);
-  Stream<LmGatewayToken> stream(LmGatewayRequest request);
-}
+final model = HumblChatModel();
+model.addProvider(deployment, completionFunction);
+
+// Used by pipeline, agents, and all consumers
+final response = await model.invoke(messages);
+final stream = model.stream(messages);  // yields AIMessageChunks
 ```
 
-Every consumer (ClassifyNode, cloud gateway, scout agents) calls the same interface. The gateway handles model selection, failover, and escalation internally.
+Providers are registered as `Deployment` (from `litellm_dart`) + optional `CompletionFunction`. Runtimes register their `CompletionFunction` when a model is loaded. The model delegates to the `litellm_dart` `Router` for provider selection and routing.
 
-## HumblLmGateway
+Every consumer (ClassifyNode, background agents, scout agents) uses `model.invoke()` or `model.stream()` rather than calling the gateway directly.
+
+## HumblLmGateway (Internal)
 
 The concrete implementation routes requests through a multi-step filtering and sorting algorithm:
 

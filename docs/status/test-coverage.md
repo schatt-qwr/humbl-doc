@@ -21,16 +21,18 @@ title: Test Coverage
 
 ### Tests by Package
 
-| Package | Test Files | Key Tests |
-|---------|-----------|-----------|
-| `humbl_core` | 63 | Pipeline, tools, gates, memory, payments, providers, LM gateway |
-| `langchain_dart` | 17 | LCEL chains, tool rendering, memory, callbacks, vector stores |
-| `langsmith_dart` | 4 | Tracers (console, confidential, metrics), evaluation, datasets |
-| `litellm_dart` | 7 | Router strategies, provider adapters, cost calculation, cooldown |
-| `langchain_graph` | 7 | StateGraph compilation, channels, checkpointing, ReAct agent |
-| `humbl_lm` | 2 | Minimal (scaffolded) |
-| `humbl_voice` | 2 | Minimal (scaffolded) |
-| `humbl_runtime` | 1 | Minimal (scaffolded) |
+| Package | Tests | Test Files | Key Tests |
+|---------|-------|-----------|-----------|
+| `humbl_core` | ~250+ | 63 | Pipeline, tools, gates, memory, payments, providers, LM gateway |
+| `langchain_dart` | 166 | 17+ | LCEL chains, runnables (Assign/Pick/Each/Binding), tool rendering, memory (buffer + summary), callbacks, vector stores, message utilities (merge/trim/filter), FewShotPromptTemplate |
+| `langchain_graph` | 109 | 7+ | StateGraph compilation, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, channels, checkpointing, ReAct agent |
+| `litellm_dart` | 113 | 7+ | Router strategies, all 11 provider adapters (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace), cost calculation, cooldown, embedding API, budget manager, acompletion pipeline |
+| `langsmith_dart` | 56 | 4+ | Client HTTP API, LangChainTracer, run/dataset/example CRUD, evaluate() with datasets, tracers (console, confidential, metrics) |
+| `humbl_lm` | — | 2 | Minimal (scaffolded) |
+| `humbl_voice` | — | 2 | Minimal (scaffolded) |
+| `humbl_runtime` | — | 1 | Minimal (scaffolded) |
+
+**Framework package totals:** 444 tests (up from 314 before the 1:1 port completion)
 
 ### humbl_core Test Distribution
 
