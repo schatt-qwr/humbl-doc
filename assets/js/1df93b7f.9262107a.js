@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkhumbl_doc=globalThis.webpackChunkhumbl_doc||[]).push([[4583],{6866(u,e,r){r.r(e),r.d(e,{default:()=>a});r(6540);var c=r(6347),h=r(6025),t=r(4848);function a(){return(0,t.jsx)(c.rd,{to:(0,h.Ay)("/architecture/overview")})}}}]);
