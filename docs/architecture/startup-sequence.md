@@ -9,12 +9,12 @@ The `humbl_app/lib/main.dart` file orchestrates a 20-step startup that initializ
 
 ## Framework Packages
 
-The startup sequence depends on four framework packages under `packages/`:
+The startup sequence depends on four LangChain-ecosystem framework packages under `packages/`:
 
-- **`langchain_dart`** — provides `BaseTool`, `BaseMemory`, `BaseChatMessageHistory`, `BaseCallbackHandler` that `humbl_core` classes extend
-- **`langsmith_dart`** — provides `BaseTracer` for observability (wired in Step 2: Logging)
-- **`litellm_dart`** — provides `Router`, `SpendLog`, `CostCalculator` (wired in Step 13: LM Gateway)
-- **`langchain_graph`** — provides `StateGraph` (not yet wired — SP6 will migrate the pipeline)
+- **`langchain_dart`** — provides `BaseTool`, `BaseMemory`, `BaseChatMessageHistory`, `BaseCallbackHandler`, and the generic tracing primitives (`BaseTracer`, `Run`, `RunType`, `ConsoleTracer`, `InMemoryTracer`) that `humbl_core` classes extend
+- **`langfuse_dart`** — provides `LangfuseTracer` (extends `BaseTracer`) and `LangfuseClient` for observability; wired via the decorator stack `ConfidentialTracer → MetricsTracer → LangfuseTracer` in the main.dart startup
+- **`litellm_dart`** — provides `Router`, `SpendLog`, `CostCalculator` (wired in the LM Gateway step)
+- **`langchain_graph`** — provides `StateGraph` (wired into the pipeline in SP6)
 
 These packages are resolved via local path dependencies in `pubspec.yaml`. No separate initialization is needed — they are pure Dart libraries loaded on import.
 

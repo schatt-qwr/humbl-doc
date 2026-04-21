@@ -12,7 +12,7 @@ Per-module completion status for all packages. Framework packages (`packages/`) 
 | Package | Status | Completion | Notes |
 |---------|--------|-----------|-------|
 | `langchain_dart` | Complete | 95% | All core modules implemented. 17 test files. |
-| `langsmith_dart` | Complete | 95% | Tracers + evaluation. ConfidentialTracer and MetricsTracer (Humbl extensions). |
+| `langfuse_dart` | Complete | 95% | Batch-ingestion client + LangfuseTracer (extends BaseTracer). ConfidentialTracer and MetricsTracer (Humbl extensions) wire in front of it. Replaces deleted langsmith_dart (2026-04-21). |
 | `litellm_dart` | Complete | 95% | Router, 11 providers, cost, cooldown. All 5 routing strategies. |
 | `langchain_graph` | Complete | 90% | StateGraph, channels, checkpoints, ReAct agent. Runtime with Zones. |
 

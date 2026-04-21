@@ -5,138 +5,96 @@ title: Implementation Status
 
 # Implementation Status
 
-## Summary Dashboard
+_Last updated: 2026-04-21 (branch `claude/implement-plan-folder-TFg7A`, 184 commits ahead of `main`)._
 
-Humbl is approximately **70% complete** after the most recent development sessions (up from 44% at the March 2026 baseline audit). The codebase has **700+ unit tests** across all packages, all passing.
+This page is a **snapshot of truth**: what exists today, what's planned next, and what's still open. The working principle of this doc: **current state is stated descriptively, future work is clearly separated.** If a claim reads like a normative rule ("must stay X"), it should be read as "currently X" unless traced to a user-stated requirement.
 
-| Metric | Value |
-|--------|-------|
-| Overall completion | ~70% |
-| Total unit tests | 700+ |
-| Framework tests | 472 (175 + 128 + 113 + 56) |
-| Framework packages | 4 (langchain_dart, langsmith_dart, litellm_dart, langchain_graph) |
-| Dart modules (humbl_core) | 31 |
-| Public exports | 343 |
-| Registered tools | 70+ |
-| LM provider adapters | 12 |
-| Prebuilt agent patterns | 6 |
-| Cloud agent types | 28 |
-| App screens | 34 (all implemented) |
-| Callback handlers | 6 |
-| Platform manager interfaces | 21 |
-| Native plugins (Kotlin + Swift) | 20 |
+## Truth — What Exists Today
 
-## Recent Completions
+### Framework Packages (`packages/`)
 
-### Framework Port (314 -> 472 tests)
+| Package | Port of | Tests | What it is |
+|---|---|---:|---|
+| `langchain_dart` | LangChain Core | 175+ (incl. migrated tracer tests) | Faithful Dart port: Runnables (LCEL), Tools, Memory, Callbacks, Chat Models, Prompts, Output Parsers, Documents, Embeddings, Vector Stores, Retrievers, Stores, **Tracers** (generic BaseTracer/Run/RunType/Console/InMemory migrated here 2026-04-21) |
+| `langchain_graph` | LangGraph | 128 | Faithful Dart port: StateGraph, channels (LastValue, Topic, BinaryOperatorAggregate, EphemeralValue), checkpointing (InMemory, SQLite, Postgres), prebuilt agents (ReAct, Supervisor, Swarm, Handoff, Plan-and-Execute, Hierarchical), Runtime |
+| `litellm_dart` | LiteLLM | 113 | Faithful Dart port: Router (5 strategies), 12 provider adapters, Cost Calculator, SpendLog, Cooldown, Budget, embedding + image APIs, acompletion, Redis cache |
+| `langfuse_dart` | Langfuse | 45 | Faithful Dart port: LangfuseClient with batch ingestion (auto-flush 5s, max 20 per batch, re-queue on failure), LangfuseTracer extends BaseTracer, full Trace / Observation / Score / Usage / Dataset types |
 
-The four framework packages received major additions bringing them to near-complete 1:1 parity with their Python counterparts:
+### FFI Plugins (`packages/`)
 
-**langchain_dart (115 -> 175 tests):**
-- Messages: `FunctionMessage`, `RemoveMessage`, `mergeMessageRuns`, `trimMessages`, `filterMessages`
-- Runnables: `RunnableAssign`, `RunnablePick`, `RunnableEach`, `RunnableBinding`, `RunnableGenerator`
-- Memory: `ConversationSummaryMemory`, `EntityMemory`
-- Parsers: `XMLOutputParser`
-- Retrievers: `ContextualCompressionRetriever` with `ThresholdCompressor` and `TopKCompressor`
-- Prompts: `FewShotPromptTemplate`, `PipelinePromptTemplate`
-- LM: `BaseLLM`, `GenericFakeChatModel`, `FakeListChatModel`, `FakeStreamingListLLM`
-- Tools: `ToolException`
-- Callbacks: `RunManager`
+| Package | Tests | What it is |
+|---|---:|---|
+| `whisper_dart` | 51 | Flutter FFI plugin for whisper.cpp on-device STT. `ffiPlugin: true` for android/windows/linux/ios/macos. **Native `.so` / `.dll` / `.dylib` binaries are not yet bundled.** |
+| `piper_dart` | 28 | Flutter FFI plugin for Piper on-device TTS. Same plugin shape. **Native binaries not yet bundled.** |
 
-**langchain_graph (83 -> 128 tests):**
-- Superstep execution engine (parallel node execution via `Future.wait`)
-- `Send` for fan-out routing, `addWaitingEdge` for fan-in barriers
-- `addSubgraph` for subgraph composition
-- `MessageGraph` convenience class
-- `SqliteCheckpointSaver` + `PostgresCheckpointSaver`
-- `NamespacedInMemoryStore` for cross-thread memory
-- 6 prebuilt agents: `createReactAgent`, `createSupervisor`, `createSwarm`, `createHandoffTool`, `createPlanAndExecute`, `createHierarchicalAgent`
+### Humbl Dart Packages
 
-**litellm_dart (79 -> 113 tests):**
-- 8 new provider adapters: Gemini, Azure OpenAI, Bedrock, Vertex AI, Cohere, HuggingFace, Together AI, Mistral (total 12)
-- Embedding API types, Image generation types
-- `BudgetManager` with rolling window
-- `acompletion()` full async pipeline + `createCompletionFunction()`
-- `RedisResponseCache` pluggable adapter
-- `RequestLog` with latency percentiles
+| Package | Tests | Lib files | Status |
+|---|---:|---:|---|
+| `humbl_core` | 732 (1 flaky) | 436 | Central Flutter plugin. Tool registry, StateGraph pipeline, 21 platform managers, tools (70+), services, auth, memory (T1–T4 SQLite), LM gateway, devices SDK, voice session orchestrator, payments/quota, MCP, resilience, settings. |
+| `humbl_app` | 200 | 127 | Primary Flutter app (`com.qwr.humbl`). 40 screens, 16 BLoCs, 24 widgets, navigation, 20-step startup wiring. Langfuse + Sentry wired. |
+| `humbl_lm` | 2 | 16 | 10+ LM connectors (Anthropic, OpenAI, Gemini, Mistral, Cohere, xAI, Sarvam, Ollama, LM Studio, OpenAI-compatible) + LmScheduler (stale — see pending) + adapter training scaffolding. |
+| `humbl_voice` | 6 | 15 | STT/TTS provider implementations, Silero VAD engine, audio stream buffer, mic source. 5 STT + 6 TTS. |
+| `humbl_runtime` | 2 | 11 | llama.cpp FFI, ONNX, whisper.cpp, ExecuTorch (stub), LiteRT (stub), GpuDetector. |
+| `humbl_integrations` | 0 | 1 | **Scaffolded 2026-04-21.** Landing spot for 3rd party service bindings (Spotify, Google, Apple, fitness, email). Replaces deleted `humbl_features` / `humbl_connectors` / `humbl_utility` shells. |
 
-**langsmith_dart (37 -> 56 tests):**
-- `Client` class with pluggable HTTP transport
-- Full CRUD: runs, datasets, examples, feedback
-- `evaluate()` with `EvaluationResults` + `averageScore`
-- `evaluateComparative()` for A/B model testing
-- `LangChainTracer` (persists to API via Client)
+### Backend (`humbl_backend/`)
 
-### Cloud Agent Backend (all new)
+Not a Dart package — no `pubspec.yaml`. Deliberately multi-language:
 
-Local-primary, cloud-extended agent system with three execution tiers:
+- **`agent_worker/`** — Python Cloud Run worker (FastAPI + LangGraph), 10 files
+- **`supabase/functions/`** — 42 TypeScript/Deno Edge Functions including: `dispatch-agent-job`, `verify-quota`, `micro-agent-runner`, `cloud-sync`, `journal-sync`, `expire-subscriptions`, `gateway-models`, `gateway-providers`, and streaming proxies for Anthropic / Gemini / Cohere
+- **Auto-deploy** configured
 
-- **Database**: 5 Supabase tables (agent_jobs, agent_messages, agent_inbox, micro_agent_schedules, agent_checkpoints) with RLS and Realtime
-- **Edge Functions**: dispatch-agent-job (Gate 2 quota), verify-quota, micro-agent-runner
-- **Cloud Run Worker**: Python FastAPI server with LangGraph supervisor graph and 5 cloud tools
-- **28 agent YAML configs**: 25 pre-built + custom + 2 micro agents
-- **Message bus**: Bidirectional via Supabase Realtime (dispatch, result, tool_req, tool_res, heartbeat, control)
-- **Device tool proxy**: Cloud agents request device tools through Main Agent
+### What's Actually Working
 
-See [Cloud Agent Backend](../architecture/supporting/cloud-agents) for full architecture details.
+- **Pipeline.** 4-node `buildHumblPipeline()` on `StateGraph` from `langchain_graph`. Streaming, cancellation, concurrent runs, superstep execution.
+- **Tool system.** `HumblTool extends BaseTool`. Named gates (Policy → Access → Permission → validate → Quota → Resource). 70+ tools, 6 callback handlers.
+- **LM Gateway.** `HumblChatModel extends BaseChatModel` routing through `litellm_dart Router`. 10+ connectors, 5 strategies, cooldown, budget.
+- **Memory.** `IMemoryService extends BaseMemory`, `ConversationStore implements BaseChatMessageHistory`, SQLite persistence, T1–T4 hierarchy (partial).
+- **Tracing (new 2026-04-21).** Decorator stack `ConfidentialTracer → MetricsTracer → LangfuseTracer` wired in `main.dart`. Sentry also wired for crash reporting.
+- **App frontend.** 40 screens implemented (not the earlier claimed 34). All auth, onboarding, chat, media, features, settings, security, and agent-inbox screens exist.
 
-### App Frontend (all 34 screens implemented)
+## Plans — What's Being Worked On
 
-- **AuthBloc** wired to Supabase (signIn/signUp/resetPassword/signOut + auth stream listener)
-- **3 auth screens**: Login, Signup, Forgot Password
-- **AgentInbox BLoC + screen**: Dispatch dialog, detail sheet, swipe dismiss, pin/unpin
-- **AgentMessageService**: Injectable HTTP client connected to supabase_flutter
-- **Settings screens**: API Keys, LM Providers, general settings
-- All 34 screens implemented with zero stubs remaining
+| Item | Plan doc | Status |
+|---|---|---|
+| Native library bundling (whisper_dart + piper_dart `.so`/`.dll`/`.dylib`) | `docs/superpowers/plans/2026-04-07-native-library-bundling.md` | Plan exists; execution pending |
+| SP9 Vision-to-Text finish (`VisionProviderRouter`, `VisionSessionRunner`, GPT-4V / Gemini Vision / on-device providers) | `docs/superpowers/plans/2026-04-02-sp9-vision-to-text.md` | Partial implementation |
+| Cloud agent backend end-to-end (SP12) | `memory/design-cloud-agent-backend.md` | Designed: local-primary, 3 tiers, 25+1 agents, message bus. Not yet implemented. |
+| Connected device capabilities (DPVR G1, Mentra Live BLE `connect()` / `disconnect()`) | `docs/superpowers/plans/2026-04-09-connected-device-capabilities.md` | Providers exist, methods throw UnimplementedError |
+| UI Sprint 3 feature screens (memory browser, notes, journal, badges, voice enrollment) | `docs/superpowers/plans/2026-04-09-ui-port-sp3-feature-screens.md` | Complete (merged) |
 
-### Pipeline & Agent Refactors (earlier in session)
+## Pending — Open Design and Trailing Work
 
-- SP6: Pipeline refactored to 4-node `buildHumblPipeline()` using langchain_graph StateGraph
-- SP7.5: `HumblLmGateway` slimmed to tier+quota wrapper, `HumblChatModel extends BaseChatModel`
-- SP10: All 10 background agents migrated from `gateway.complete()` to `model.invoke()`
-- SP8a: `StreamEvent` type, `CompiledStateGraph.streamEvents()` with stream modes
-- SP8b: Voice-graph integration -- LLM tokens pipe to TTS in real-time
-- SP8c: VoiceProviderRouter with tier gating
-- SP8d: IProviderCostModel, UsageRecord, universal quota
+These are real gaps, grouped by type. See `memory/pending-design-items.md` for the load-bearing detail.
 
-## Framework Packages
+### Design-level (not yet implemented, require decisions)
 
-All four framework packages are implemented and tested:
+1. **INR pricing tables in QuotaManager.** FREE / STANDARD (₹199) / PLUS (₹399) / ULTIMATE (₹799). Per-tier cloud AI budgets, premium/standard/budget model caps, top-up packs (₹49 / ₹99 / ₹249 / ₹499), BYOK, cross-device flag, INR-primary FX policy with Supabase-cron-updated exchange rates. Not yet encoded in code.
+2. **MCP offline / local-network routing.** Replace `HumblTool.requiresCloud: bool` (too coarse) with `requiresInternet` / `worksOnLocalNetwork` / `worksOffline`. `ToolRegistry.available(context)` filters by `DeviceState.hasNetwork + hasLocalNetwork`. Pipeline `RouteDecisionNode` must be connectivity-aware.
+3. **SP9 Local Networking subsystem.** `INetworkDiscoveryService` (mDNS + UDP multicast + BLE), `ILocalTransferService` (HTTPS REST + WiFi Direct + BT), `IRemoteFileService` (SFTP, FTP, SMB, WebDAV), `INetworkToolService` (ping, subnet scan, port scan, WOL). Cross-user sharing via mDNS + consent + TLS.
+4. **SoC execution-provider strategy.** Per-silicon table (Qualcomm Snapdragon, MediaTek, Exynos, Google Tensor, Intel NPU, AMD XDNA, Qualcomm Snapdragon X, AMD ROCm, Intel Arc, Google Coral). Fallback chains to CPU baseline. 6 ARM variants for llama.cpp. Auto-detect at first launch.
+5. **Cloud Sync IDataSyncService.** Universal orchestrator partial; pluggable `ICloudSyncProvider` backends (HumblCloud / Google Drive / iCloud / OneDrive) not built; per-category conflict resolution pending.
+6. **Runtime deferrals.** Play Asset Delivery (post-MVP), LiteRT-LM (stub), MediaPipe LLM Inference (not integrated), ONNX Runtime GenAI (pending).
 
-| Package | Tests | Test Files | Key Features |
-|---------|-------|-----------|--------------|
-| `langchain_dart` | 175 | 17+ | LCEL, tools, memory (buffer + summary + entity), callbacks, prompts (few-shot + pipeline), retrievers (compression), vector stores, parsers (XML), fake models |
-| `langchain_graph` | 128 | 7+ | StateGraph, superstep execution, Send/fan-in, subgraph, MessageGraph, checkpointing (SQLite + Postgres), 6 prebuilt agents |
-| `litellm_dart` | 113 | 7+ | Router (5 strategies), 12 providers, embedding/image APIs, budget manager, acompletion, Redis cache |
-| `langsmith_dart` | 56 | 4+ | Client API, LangChainTracer, CRUD, evaluate + evaluateComparative, tracers |
+### Trailing work (implementation-only, no open decisions)
 
-## Key Strengths
+- **LmScheduler rewrite** (`humbl_lm/lib/scheduling/lm_scheduler.dart` still references the old `ILmGateway` — rewrite on top of `BaseChatModel`)
+- **VoiceSessionRunner → StreamSessionCoordinator rename** (class + interface + directory + ~587 test lines)
+- **UserTier `'plus'` → `'premium'` residual cleanup** (check JSON / SQL for stringly-typed leftovers)
+- **Receipt verification** (`humbl_backend/.../verify-purchase.ts` always returns valid; 2 micro-agent handlers stubbed)
+- **Test backfill** — zero tests in: `mcp/`, `resilience/`, `services/`, `settings/`, `sync/`, `input/`, `voice_activity_detection/`
 
-The following areas are fully tested and production-ready:
+### Explicitly undecided by design
 
-- **Pipeline architecture.** `StateGraph`, `PipelineOrchestrator`, 4 nodes, concurrent runs, superstep execution, streaming, cancellation.
-- **Tool system.** 70+ tools extending `BaseTool`, five-gate security template (`@nonVirtual`), MCP schema export, streaming support, confirmation framework, 6 callback handlers.
-- **Multi-agent patterns.** 6 prebuilt agents (ReAct, Supervisor, Swarm, Handoff, Plan-and-Execute, Hierarchical) from langchain_graph.
-- **Security model.** `AccessLevel` hierarchy, `AccessControl.canAccess()`, `ToolStateManager`, `ConfirmationService` with 7 providers.
-- **Platform abstraction.** 21 `I*Manager` interfaces with per-platform implementations (Android, iOS, Windows, macOS, Linux). `PlatformFactory` runtime selection.
-- **LM Gateway.** `HumblChatModel extends BaseChatModel` delegating to LiteLLM `Router` with 12 provider adapters, 5 routing strategies, cooldown, budget manager, spend tracking.
-- **Memory system.** `IMemoryService` extending `BaseMemory`, `ConversationStore` implementing `BaseChatMessageHistory`, `ConversationSummaryMemory`, `EntityMemory`, T2-T4 hierarchy with SQLite persistence.
-- **Observability.** `LangChainTracer` (API persistence), `ConfidentialTracer` (PII encryption), `MetricsTracer` (performance). `evaluate()` and `evaluateComparative()` for model testing.
-- **Cloud agents.** 28 agent configs, 3 Edge Functions, Cloud Run worker, bidirectional message bus, device tool proxy, dual-gated quota.
-- **App frontend.** All 34 screens implemented. AuthBloc, AgentInbox, Settings all wired.
-- **Resilience.** `CircuitBreaker`, `RetryPolicy`, `ResilientExecutor`, `Heartbeat` -- all implemented and tested.
-- **Settings.** `SettingsService` with namespace isolation, access control, reactive streams, SQLite persistence.
-- **Quota.** `QuotaManager`, `SpendLog`, `SlidingWindowCounter`, `BudgetManager`, tier limits, dual-gated cloud quota.
-- **MCP.** `IMcpTransport`, `McpClient`, `McpBridgeTool`, `McpConnectionManager`.
+- **BG Agent Tool Policy on iOS** — needs BGTaskScheduler research before committing a design
+- **LM Warm Start strategy** — cold-start mitigation not yet scoped
 
-## Key Gaps
+## Recent Session Activity (2026-04-21)
 
-The following areas have interfaces defined but lack full implementations or wiring:
+- `b64c2652f` — BaseTracer migration: moved generic tracing primitives from `langsmith_dart` to `langchain_dart/lib/src/tracers/`. Deleted `langsmith_dart` entirely (LangSmith-specific client, feedback, evaluation discarded — Humbl uses Langfuse).
+- `ecceba7d9` — Root `analysis_options.yaml`: exclude `humbl_references/**`, `qwr_companion_main_reference/**`, `build/`, `.dart_tool/`, and generated files from analyzer.
+- `376636162` — Package consolidation: deleted `humbl_features/`, `humbl_connectors/`, `humbl_utility/` (empty shells whose scopes already lived elsewhere). Created `humbl_integrations/` as the single landing spot for 3rd-party service bindings.
 
-- **Cloud round-trip testing.** Backend infrastructure exists but full end-to-end cloud agent dispatch-to-result is not yet tested.
-- **iOS/Android native services.** Kotlin/Swift plugins exist for timers, alarms, calendar, biometrics, but most are stub implementations awaiting native method channel wiring.
-- **Voice I/O.** Interfaces (`IVadEngine`, `ISttProvider`, `ITtsProvider`) and `VoiceSessionRunner` are implemented with streaming integration, but no concrete providers are wired (no actual Whisper.cpp or platform STT).
-- **Memory T2-T4.** `IMemoryService` interface and `SqliteMemoryService` exist, but the full T2-T4 architecture (importance scoring, consolidation, scheduled pruning) is incomplete.
-- **Provider packages.** `humbl_lm` and `humbl_voice` are scaffolded but have no concrete implementations.
-
-See [Gap Analysis](./gap-analysis) for the full per-category breakdown.
+See [Roadmap](./roadmap) for the sprint-by-sprint view and [Test Coverage](./test-coverage) for per-package test detail.

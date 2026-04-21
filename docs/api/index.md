@@ -12,7 +12,7 @@ Complete API reference for the Humbl project. The project consists of four frame
 The four framework packages are documented in the [LangChain Framework](../architecture/subsystems/langchain-framework) architecture page:
 
 - **`langchain_dart`** -- Core framework (Runnables, BaseTool, BaseMemory, BaseCallbackHandler, Embeddings, VectorStores)
-- **`langsmith_dart`** -- Observability (BaseTracer, RunEvaluator, Dataset)
+- **`langfuse_dart`** -- Observability (LangfuseClient, LangfuseTracer extending BaseTracer, Trace/Observation/Score)
 - **`litellm_dart`** -- Multi-provider gateway (Router, Providers, CostCalculator, SpendLog)
 - **`langchain_graph`** -- State machines (StateGraph, Channels, CheckpointSaver, ReAct agent)
 

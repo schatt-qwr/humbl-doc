@@ -29,11 +29,13 @@ Three reasons drove the decision to port rather than wrap via FFI or REST:
 | Package | Port of | Version | Dependencies | Purpose |
 |---------|---------|---------|-------------|---------|
 | `langchain_dart` | [LangChain](https://python.langchain.com/) | 0.1.0 | `meta`, `uuid`, `collection` | Core framework — runnables, tools, memory, callbacks, prompts |
-| `langsmith_dart` | [LangSmith](https://docs.smith.langchain.com/) | 0.1.0 | `langchain_dart` | Observability — tracing, evaluation, feedback |
-| `litellm_dart` | [LiteLLM](https://docs.litellm.ai/) | 0.1.0 | `langchain_dart` | Multi-provider gateway — routing, cost, tokens |
 | `langchain_graph` | [LangGraph](https://langchain-ai.github.io/langgraph/) | 0.1.0 | `langchain_dart` | State machines — StateGraph, channels, checkpoints |
+| `litellm_dart` | [LiteLLM](https://docs.litellm.ai/) | 0.1.0 | `langchain_dart` | Multi-provider gateway — routing, cost, tokens |
+| `langfuse_dart` | [Langfuse](https://langfuse.com/) | 0.1.0 | `langchain_dart`, `http` | Observability — batch-ingestion client, `LangfuseTracer extends BaseTracer` |
 
-All four packages live under `packages/` in the repo root. They depend only on each other and standard Dart libraries — no Flutter dependency, no platform code.
+The four LangChain-ecosystem packages live under `packages/`. Two additional FFI plugins (`whisper_dart` and `piper_dart`) also live under `packages/` but are Flutter plugins (not pure Dart) — they provide on-device STT and TTS via native binding and are documented separately.
+
+Note on historical record: a fifth package `langsmith_dart` was part of this set until 2026-04-21 (commit `b64c2652f`). Its generic tracing primitives (`BaseTracer`, `Run`, `RunType`, `RunEvent`, `InMemoryTracer`, `ConsoleTracer`) were migrated into `langchain_dart/lib/src/tracers/` — their proper home per upstream Python `langchain_core.tracers`. LangSmith-specific code (the `Client` HTTP API, `LangChainTracer`, feedback and evaluation modules) was deleted entirely. Humbl uses Langfuse for observability.
 
 ## langchain_dart — Core Framework
 
@@ -353,52 +355,61 @@ Typed request/response models for image generation:
 
 Humbl's `HumblChatModel` (extends `BaseChatModel` from `langchain_dart`) is the single entry point for LLM calls. It uses `addProvider(Deployment, CompletionFunction)` to register providers and delegates to the Router for selection and routing.
 
-## langsmith_dart — Observability
+## Tracers — in `langchain_dart`
 
-Port of LangSmith's tracing and evaluation for LLM applications. **56 tests** across 4+ test files.
+As of 2026-04-21, the generic tracing primitives live in `langchain_dart/lib/src/tracers/` (matching upstream Python `langchain_core.tracers`). These are framework-agnostic:
 
-### Client
-
-`Client` is the HTTP client for the LangSmith API with pluggable transport and `x-api-key` authentication. It provides typed methods for all CRUD operations and evaluation workflows.
-
-### Tracers
-
-All tracers implement `BaseTracer` and receive callback events:
-
-| Tracer | Purpose |
-|--------|---------|
+| Class | Purpose |
+|---|---|
+| `BaseTracer` | Abstract tracer that consumes callback events and records `Run` trees |
+| `Run` | A single execution trace (LLM call, tool call, chain step, retriever lookup) |
+| `RunType` | Enum — `llm`, `tool`, `chain`, `retriever` |
+| `RunEvent` | Event emitted as a run starts, progresses, or completes |
 | `ConsoleTracer` | Human-readable console output for debugging |
 | `InMemoryTracer` | Captures runs in memory for testing |
-| `LangChainTracer` | Persists runs to the LangSmith API via `Client`, enriches with project metadata |
-| `ConfidentialTracer` | Encrypts PII fields before logging (Humbl extension) |
-| `MetricsTracer` | Aggregates latency, token count, error rate metrics (Humbl extension) |
 
-### Run CRUD
+Anything that wants to persist runs implements `BaseTracer`. `langfuse_dart` does this.
 
-Full lifecycle management for execution traces:
+## langfuse_dart — Observability
 
-- `createRun` / `readRun` / `updateRun` / `deleteRun` — individual run operations
-- `listRuns` — query runs with filters (project, run type, date range)
+Port of Langfuse's ingestion and trace model for LLM applications. **45 tests** across 6 test files. Self-hosted Langfuse is the observability backend for Humbl (both the Dart app and the Python cloud agents trace to the same store).
 
-### Dataset & Example CRUD
+### LangfuseClient
 
-Test case management for evaluation workflows:
+`LangfuseClient` is the HTTP client for Langfuse's batch-ingestion API. It buffers events locally and flushes them in batches with three failure-handling behaviors:
 
-- `createDataset` / `readDataset` / `updateDataset` / `deleteDataset` / `listDatasets`
-- `createExample` / `updateExample` / `deleteExample` / `listExamples`
+- **Auto-flush**: every 5 seconds
+- **Size trigger**: flushes when the batch reaches 20 events
+- **Re-queue on failure**: failed batches are returned to the buffer for the next flush cycle rather than dropped
 
-### Evaluation
+Authentication uses `Authorization: Basic` with public/secret keys.
 
-- `evaluate()` — runs a target function against a `Dataset`, applies `RunEvaluator` instances, and returns `EvaluationResults` with `averageScore`
-- `evaluateComparative()` — A/B model testing. Runs two target functions against the same dataset and compares results with pairwise evaluators.
-- `RunEvaluator` — scores runs against criteria
-- `EvaluationResult` — structured evaluation output with score, key, and comment
+### LangfuseTracer
 
-### Data Models
+`LangfuseTracer extends BaseTracer` (from `langchain_dart`). It maps callback events from the run tree into Langfuse's domain objects:
 
-- `Run` — a single execution trace (LLM call, tool call, chain step)
-- `RunType` — enum (`llm`, `tool`, `chain`, `retriever`)
-- `Feedback` — user or automated feedback on a run
+| Dart type | Langfuse concept |
+|---|---|
+| `Trace` | Top-level request/session — one per pipeline turn |
+| `Observation` | Child node — LLM call, tool call, retriever lookup, chain step |
+| `Score` | Numeric, boolean, or categorical metric attached to a trace or observation |
+| `Usage` | Token and cost accounting per LLM call |
+| `Dataset` | Evaluation dataset (test cases for A/B model comparison) |
+| `IngestionEvent` | Wire format for batch submission |
+
+### Humbl extensions on top
+
+Humbl wires a decorator stack in `humbl_app/lib/main.dart` so every tracer sees every event:
+
+```
+ConfidentialTracer → MetricsTracer → LangfuseTracer
+         │                 │                │
+  encrypts PII       aggregates local     sends batch to
+   before logging    metrics (latency,    self-hosted
+                     tokens, error rate)  Langfuse
+```
+
+Each layer extends `BaseTracer`. `ConfidentialTracer` and `MetricsTracer` live in `humbl_core/lib/tracing/` — they are Humbl-specific and never leak into the framework packages.
 
 ## How Humbl Extends the Frameworks
 
@@ -410,7 +421,7 @@ graph TB
         LC[langchain_dart<br/>Runnables, Tools, Memory, Callbacks]
         LG[langchain_graph<br/>StateGraph, Channels, Checkpoints]
         LT[litellm_dart<br/>Router, Providers, Cost]
-        LS[langsmith_dart<br/>Tracing, Evaluation]
+        LS[langfuse_dart<br/>Observability, Batch Ingestion]
     end
 
     subgraph "humbl_core (Application Layer)"
@@ -452,7 +463,7 @@ All framework packages have independent test suites. Total: **472 tests** across
 | `langchain_dart` | 175 | 17+ | LCEL chains, runnables (Assign/Pick/Each/Binding/Generator), tool rendering, memory (buffer + summary + entity), callbacks, vector stores, message utilities, few-shot prompts, contextual compression retriever, XML parser, fake models |
 | `langchain_graph` | 128 | 7+ | StateGraph compilation, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, channels, checkpointing (SQLite + Postgres), prebuilt agents (supervisor, swarm, handoff, plan-and-execute, hierarchical) |
 | `litellm_dart` | 113 | 7+ | Router strategies, all 12 provider adapters, cost calculation, cooldown, embedding API, image generation types, budget manager, acompletion pipeline, Redis cache, request logging |
-| `langsmith_dart` | 56 | 4+ | Client HTTP API with pluggable transport, LangChainTracer, run/dataset/example CRUD, evaluate() with datasets, evaluateComparative() for A/B testing |
+| `langfuse_dart` | 45 | 6 | Batch-ingestion client (auto-flush + size trigger + re-queue on failure), LangfuseTracer extending BaseTracer, Trace/Observation/Score/Usage/Dataset types |
 
 Tests run with `dart test` (no Flutter required). All use in-memory implementations — no external services needed.
 
@@ -465,6 +476,7 @@ The Dart ports share the same abstractions as their Python counterparts. This en
 | Tools | `BaseTool` (langchain_dart) | `BaseTool` (langchain) |
 | Graphs | `StateGraph` (langchain_graph) | `StateGraph` (langgraph) |
 | Gateway | `Router` (litellm_dart) | `Router` (litellm) |
-| Tracing | `BaseTracer` (langsmith_dart) | `BaseTracer` (langsmith) |
+| Tracing primitives | `BaseTracer` (langchain_dart) | `BaseTracer` (langchain_core.tracers) |
+| Observability backend | `LangfuseTracer` (langfuse_dart) | `LangfuseCallbackHandler` (langfuse Python SDK) |
 
 Same graph definitions, same tool schemas, same routing strategies. The local app and cloud backend speak the same language.

@@ -41,14 +41,14 @@ The four framework packages under `packages/` are pure Dart and can be built and
 # LangChain Core
 cd packages/langchain_dart && dart pub get && dart test && cd ../..
 
-# LangSmith (depends on langchain_dart)
-cd packages/langsmith_dart && dart pub get && dart test && cd ../..
+# LangGraph (depends on langchain_dart)
+cd packages/langchain_graph && dart pub get && dart test && cd ../..
 
 # LiteLLM (depends on langchain_dart)
 cd packages/litellm_dart && dart pub get && dart test && cd ../..
 
-# LangGraph (depends on langchain_dart)
-cd packages/langchain_graph && dart pub get && dart test && cd ../..
+# Langfuse (depends on langchain_dart for BaseTracer)
+cd packages/langfuse_dart && dart pub get && dart test && cd ../..
 ```
 
 ### humbl_core (Flutter plugin)
@@ -94,9 +94,9 @@ All 509+ tests run without Supabase, device hardware, or LM models. Every depend
 
 ```bash
 cd packages/langchain_dart && dart test
-cd packages/langsmith_dart && dart test
-cd packages/litellm_dart && dart test
 cd packages/langchain_graph && dart test
+cd packages/litellm_dart && dart test
+cd packages/langfuse_dart && dart test
 ```
 
 ### Run a single test file
@@ -133,15 +133,17 @@ npx docusaurus start
 
 ```
 packages/
-  langchain_dart/       LangChain Core (runnables, tools, memory, callbacks)
-  langsmith_dart/       LangSmith (tracing, evaluation, feedback)
-  litellm_dart/         LiteLLM (multi-provider routing, cost tracking)
+  langchain_dart/       LangChain Core (runnables, tools, memory, callbacks, tracers)
   langchain_graph/      LangGraph (StateGraph, channels, checkpoints)
+  litellm_dart/         LiteLLM (multi-provider routing, cost tracking)
+  langfuse_dart/        Langfuse (observability, batch ingestion, LangfuseTracer)
+  whisper_dart/         Flutter FFI plugin — whisper.cpp STT
+  piper_dart/           Flutter FFI plugin — Piper TTS
 
 humbl_core/             Flutter plugin — pipeline, tools, security, platform managers
 humbl_app/              Flutter app — startup wiring, BLoC state management, UI
-humbl_lm/               LM provider implementations (scaffolded)
-humbl_voice/            Voice provider implementations (scaffolded)
+humbl_lm/               LM connector implementations
+humbl_voice/            Voice provider implementations
 humbl_runtime/          Native inference runtimes (scaffolded)
 humbl_backend/          Supabase Edge Functions (partial)
 humbl-doc/              Documentation site (Docusaurus)

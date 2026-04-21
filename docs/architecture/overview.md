@@ -16,7 +16,7 @@ Humbl's AI layer is built on native Dart ports of four industry-standard Python 
 | [`langchain_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_dart) | LangChain | Runnables (LCEL + Assign/Pick/Each/Binding/Generator), tools (`BaseTool` + `ToolException`), memory (buffer + summary + entity), callbacks + `RunManager`, prompts (few-shot + pipeline), messages (merge/trim/filter), retrievers (contextual compression), vector stores, parsers (XML), fake test models |
 | [`langchain_graph`](https://github.com/qwr-app/humbl/tree/main/packages/langchain_graph) | LangGraph | `StateGraph`, superstep execution, `Send` fan-out, fan-in barriers, subgraph composition, `MessageGraph`, channels, checkpointing (SQLite + Postgres), `NamespacedInMemoryStore`, 6 prebuilt agents (ReAct, Supervisor, Swarm, Handoff, Plan-and-Execute, Hierarchical) |
 | [`litellm_dart`](https://github.com/qwr-app/humbl/tree/main/packages/litellm_dart) | LiteLLM | Multi-provider `Router`, 12 provider adapters (incl. Gemini, Azure, Bedrock, Vertex AI, Cohere, HuggingFace, Together AI, Mistral), embedding API, image generation API, cost tracking, budget manager, `acompletion()` pipeline, Redis cache adapter, request logging |
-| [`langsmith_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langsmith_dart) | LangSmith | `Client` with pluggable HTTP transport, `LangChainTracer`, run/dataset/example CRUD, `evaluate()` + `evaluateComparative()`, tracing, feedback, metrics |
+| [`langfuse_dart`](https://github.com/qwr-app/humbl/tree/main/packages/langfuse_dart) | Langfuse | Observability — `LangfuseClient` with batch ingestion (auto-flush 5s, max 20 per batch, re-queue on failure), `LangfuseTracer extends BaseTracer`, full Trace / Observation / Score / Usage / Dataset types. Wired in `humbl_app/main.dart` via the decorator stack `ConfidentialTracer → MetricsTracer → LangfuseTracer`. |
 
 These are **not wrappers** — they are full Dart reimplementations following the same interfaces as their Python counterparts. All Humbl features are extensions of these ports:
 
@@ -27,7 +27,7 @@ These are **not wrappers** — they are full Dart reimplementations following th
 - `HumblChatModel` extends `BaseChatModel` (from `langchain_dart`) as the single LM entry point
 - `HumblChatModel` delegates to the `Router` (from `litellm_dart`) for provider selection
 - 6 callback handlers extend `BaseCallbackHandler` (from `langchain_dart`)
-- `ConfidentialTracer` and `MetricsTracer` extend `BaseTracer` (from `langsmith_dart`)
+- `ConfidentialTracer` and `MetricsTracer` extend `BaseTracer` (from `langchain_dart`; generic tracing primitives were migrated out of the deleted `langsmith_dart` on 2026-04-21)
 
 This means cloud agents can run real Python LangChain + LangGraph + LiteLLM, sharing the same abstractions as the Dart ports. Same graph definitions, same tool schemas, same routing strategies.
 
@@ -157,7 +157,7 @@ BYOK users accept that the provider knows their identity (it's their account). H
 ```
 packages/
   langchain_dart/       LangChain Core in Dart — runnables, tools, memory, callbacks
-  langsmith_dart/       LangSmith observability — tracing, evaluation, feedback
+  langfuse_dart/        Langfuse observability — batch ingestion, tracers, scoring
   litellm_dart/         LiteLLM multi-provider gateway — routing, cost, tokens
   langchain_graph/      LangGraph state machine — StateGraph, channels, checkpoints
 
@@ -167,17 +167,14 @@ humbl_backend/          Supabase Edge Functions + Cloud Run worker + 28 agent co
 humbl_lm/               LLM connector implementations (planned)
 humbl_voice/            Voice provider implementations (planned)
 humbl_runtime/          Native runtimes — llama.cpp FFI, ONNX, ExecuTorch, LiteRT
-humbl_utility/          Shared utilities — WebRTC, web search, weather, audio processing
-humbl_connectors/       3rd party integrations — Spotify, Google Calendar, health, email
-humbl_features/         App features — gamification, notifications, recording, profile, analytics
-humbl_backend/          Supabase Edge Functions — spend-log, quota, cloud sync
+humbl_integrations/     3rd party service integrations — Spotify, Google (Calendar/Gmail), Apple (Health/iCloud), fitness, email
 humbl-doc/              Documentation — this site
 ```
 
 | Package | Language | Status | Purpose |
 |---------|----------|--------|---------|
 | `langchain_dart` | Dart | **Active** — 175 tests | LangChain Core — runnables (LCEL + Assign/Pick/Each/Binding/Generator), tools, memory (buffer + summary + entity), callbacks, prompts (few-shot + pipeline), messages (merge/trim/filter), retrievers (compression), parsers (XML), vector stores, fake test models |
-| `langsmith_dart` | Dart | **Active** — 56 tests | LangSmith — Client API with pluggable transport, LangChainTracer, run/dataset/example CRUD, evaluate() + evaluateComparative(), tracing, feedback, metrics |
+| `langfuse_dart` | Dart | **Active** — 45 tests | Langfuse — batch-ingestion client, LangfuseTracer extending BaseTracer, full Trace / Observation / Score / Usage / Dataset types. Wired in main.dart. |
 | `litellm_dart` | Dart | **Active** — 113 tests | LiteLLM — Router, 12 providers (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace/Together/Mistral), embedding + image APIs, budget manager, acompletion pipeline, Redis cache |
 | `langchain_graph` | Dart | **Active** — 128 tests | LangGraph — StateGraph, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, checkpointing (SQLite + Postgres), 6 prebuilt agents |
 | `humbl_core` | Dart | **Active** — 31 modules, 343 exports | All interfaces, pipeline, tools, memory, security, platform managers, devices SDK |
@@ -185,9 +182,7 @@ humbl-doc/              Documentation — this site
 | `humbl_lm` | Dart | **Scaffolded** | LLM provider implementations — concrete connectors for OpenAI, Anthropic, Gemini, etc. |
 | `humbl_voice` | Dart | **Scaffolded** | STT/TTS/VAD provider implementations — Whisper.cpp, Piper, Silero, platform native |
 | `humbl_runtime` | C++/Rust/Dart | **Scaffolded** | Native inference runtimes — llama.cpp FFI, ONNX Runtime, ExecuTorch, LiteRT, Whisper.cpp |
-| `humbl_utility` | Dart | **Planned** | WebRTC transport, web search providers, weather, context summarization, audio utilities |
-| `humbl_connectors` | Dart | **Planned** | 3rd party service connectors — Spotify, Google Calendar/Contacts/Tasks, Apple Health, Gmail |
-| `humbl_features` | Dart | **Planned** | Gamification (badges, streaks), notifications, recording, security (voice fingerprint), profile, analytics |
+| `humbl_integrations` | Dart/Flutter | **Scaffolded** | 3rd party service integrations — Spotify, Google (Calendar/Contacts/Tasks/Gmail), Apple (Health/iCloud), fitness trackers, email |
 | `humbl_backend` | TypeScript + Python | **Active** | Supabase Edge Functions (dispatch, quota, micro-agent), Cloud Run worker (Python/FastAPI/LangGraph), 28 agent YAML configs |
 | `humbl-doc` | Docusaurus | **Active** | This documentation site |
 
@@ -209,19 +204,17 @@ The project followed a **foundation-first** strategy: all interfaces, pipeline l
 - `screens/agent_inbox/` — Full agent inbox with dispatch dialog, detail sheet, swipe dismiss, pin/unpin
 - `services/humbl/` — Supabase implementations (auth, cloud sync, blob storage, key vault, agent messages)
 
-### What about humbl_lm, humbl_voice, humbl_utility?
+### Package shape after 2026-04-21 consolidation
 
-These packages are **planned but not yet created**. Their interfaces already exist in `humbl_core`:
+`humbl_features` and `humbl_utility` were deleted — their stated scopes are already implemented inside `humbl_core` (feature services, tools) and the domain packages (`humbl_voice` for audio, `humbl_app` for feature UI), so keeping them as empty shells was false advertising. `humbl_connectors` was replaced by the broader **`humbl_integrations`** package — a single landing spot for all third-party external service bindings.
 
-| Planned package | Interfaces in humbl_core | What the package will contain |
-|----------------|------------------------|-------------------------------|
-| `humbl_lm` | `ILmConnector`, `ILmProvider`, `ILoraTrainer` | Concrete connector implementations (API calls to OpenAI, Anthropic, etc.) |
+| Package | Interfaces in humbl_core | What the package will contain |
+|---------|-------------------------|------------------------------|
+| `humbl_lm` | `ILmConnector`, `ILmProvider`, `ILoraTrainer` | Concrete connector implementations (API calls to OpenAI, Anthropic, Gemini, etc.) |
 | `humbl_voice` | `ISttProvider`, `ITtsProvider`, `IVadEngine`, `IWakeWordEngine` | Concrete provider implementations (Whisper.cpp, Piper, Silero, platform native) |
-| `humbl_utility` | Various tool interfaces | WebRTC transport, web search, weather API, audio processing utilities |
-| `humbl_connectors` | `IProvider` typed interfaces | Spotify SDK, Google Calendar OAuth, Apple Health, Gmail API connectors |
-| `humbl_features` | `IProfileService`, `IAnalyticsService`, `IBadgeService` | Gamification logic, notification scheduling, recording, voice fingerprint |
+| `humbl_integrations` | `IProvider` typed interfaces + tool interfaces | 3rd party service bindings — Spotify SDK, Google (Calendar/Contacts/Tasks/Gmail) OAuth, Apple (Health/iCloud), fitness trackers, email connectors |
 
-The pattern is: **`humbl_core` owns every interface. Provider packages own concrete implementations.** This means `humbl_core` compiles and tests without any provider package. Provider packages depend on `humbl_core` for the interface, never the reverse.
+The pattern is: **`humbl_core` owns every interface. Domain + integration packages own concrete implementations.** This means `humbl_core` compiles and tests without any provider package. Provider packages depend on `humbl_core` for the interface, never the reverse.
 
 ## Core Subsystems
 
@@ -237,7 +230,7 @@ graph TB
         LC["langchain_dart<br/>Runnables, Tools, Memory, Callbacks"]
         LG["langchain_graph<br/>StateGraph, Channels"]
         LT["litellm_dart<br/>Router, Providers, Cost"]
-        LS["langsmith_dart<br/>Tracing, Evaluation"]
+        LS["langfuse_dart<br/>Observability, Tracing"]
     end
 
     subgraph "humbl_core (Application Layer)"
@@ -312,7 +305,7 @@ The diagram above shows dependency arrows, but the narrative is more important t
 | Layer | Technology |
 |-------|-----------|
 | Language | Dart 3.10+, Flutter 3.38+ |
-| AI Frameworks | `langchain_dart`, `langchain_graph`, `litellm_dart`, `langsmith_dart` (Dart ports) |
+| AI Frameworks | `langchain_dart`, `langchain_graph`, `litellm_dart`, `langfuse_dart` (Dart ports) |
 | Persistence | SQLite via `sqflite` (app DB), `sqlite3` + `sqlite_vector` (vector store) |
 | LM Inference | llama.cpp via FFI (on-device SLM), ONNX Runtime (embeddings) |
 | Speech | Whisper.cpp (STT), Piper (local TTS), platform APIs (Android/iOS native STT/TTS) |
@@ -327,7 +320,7 @@ The project spans 4 framework packages plus `humbl_core`:
 
 | Metric | Count |
 |--------|-------|
-| Framework packages | 4 (langchain_dart, langsmith_dart, litellm_dart, langchain_graph) |
+| Framework packages | 4 LangChain-ecosystem Dart ports (langchain_dart, langchain_graph, litellm_dart, langfuse_dart) + 2 FFI Flutter plugins (whisper_dart, piper_dart) |
 | Framework tests | 472 (175 + 128 + 113 + 56) |
 | Dart modules (humbl_core) | 31 |
 | Public exports (humbl_core) | 343 |

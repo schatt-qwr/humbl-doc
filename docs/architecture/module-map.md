@@ -14,7 +14,7 @@ These are Dart ports of industry-standard Python AI frameworks. They have **no F
 | Package | Port of | Modules | Tests | Key Exports |
 |---------|---------|---------|-------|-------------|
 | `langchain_dart` | LangChain | 14 | 166 | `BaseRunnable`, `RunnableAssign`, `RunnablePick`, `RunnableEach`, `RunnableBinding`, `BaseTool`, `ToolException`, `BaseMemory`, `ConversationSummaryMemory`, `BaseChatMessageHistory`, `BaseCallbackHandler`, `RunManager`, `BaseChatModel`, `BaseLLM`, `FewShotPromptTemplate`, `RemoveMessage`, `FunctionMessage`, `merge_message_runs`, `trim_messages`, `filter_messages`, `BaseEmbedding`, `BaseVectorStore`, `BaseRetriever` |
-| `langsmith_dart` | LangSmith | 5 | 56 | `Client`, `Run`, `BaseTracer`, `InMemoryTracer`, `ConsoleTracer`, `LangChainTracer`, `RunEvaluator`, `EvaluationResults`, `Dataset`, `Example` |
+| `langfuse_dart` | Langfuse | 3 | 45 | `LangfuseClient`, `LangfuseTracer` (extends `BaseTracer`), `Trace`, `Observation`, `Score`, `Usage`, `Dataset`, `IngestionEvent`. Batch ingestion with auto-flush + re-queue on failure. |
 | `litellm_dart` | LiteLLM | 8 | 113 | `Router`, `BaseProvider`, `GeminiProvider`, `AzureOpenAIProvider`, `BedrockProvider`, `VertexAIProvider`, `CohereProvider`, `HuggingFaceProvider`, `TokenCounter`, `CostCalculator`, `SpendLog`, `CooldownManager`, `BudgetManager`, `EmbeddingRequest`, `EmbeddingResponse`, `acompletion`, `createCompletionFunction` |
 | `langchain_graph` | LangGraph | 11 | 109 | `StateGraph`, `CompiledStateGraph`, `MessageGraph`, `Send`, `addWaitingEdge`, `addSubgraph`, `BaseChannel`, `BaseCheckpointSaver`, `ToolNode`, `create_react_agent` |
 

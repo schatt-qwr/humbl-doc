@@ -5,98 +5,125 @@ title: Test Coverage
 
 # Test Coverage
 
+_Last updated: 2026-04-21._
+
 ## Summary
 
-| Test Type | Status | Count |
-|-----------|--------|-------|
-| Unit | ~20% | 700+ tests across all packages |
+| Test Type | Status | Notes |
+|---|---|---|
+| Unit | healthy ratios in framework packages; gaps in domain packages | ~1500 unit tests across 11 Dart packages (exact count pending re-verify after 2026-04-21 BaseTracer migration) |
 | Integration | 0% | No multi-module wiring tests |
 | E2E | 0% | No full pipeline turn tests |
 | Device | 0% | No Android/iOS hardware tests |
 | Manual | 0% | No formal QA test plans |
 
-## Unit Tests
+Baseline count of 1528 (1527 pass, 1 flaky) was verified on 2026-04-10. The 2026-04-21 BaseTracer migration moved `run_test.dart` + `tracer_test.dart` from `langsmith_dart` into `langchain_dart`, and discarded the LangSmith-specific `client_test.dart`, `evaluation/evaluate_test.dart`, `evaluation/evaluation_test.dart`, and `feedback`-related tests. Current total is approximately **1500 tests**; exact re-verification is pending.
 
-700+ unit tests passing across all packages.
+## Tests by Package
 
-### Tests by Package
+### Framework packages (`packages/`)
 
-| Package | Tests | Test Files | Key Tests |
-|---------|-------|-----------|-----------|
-| `humbl_core` | ~250+ | 63 | Pipeline, tools, gates, memory, payments, providers, LM gateway |
-| `langchain_dart` | 175 | 17+ | LCEL chains, runnables (Assign/Pick/Each/Binding/Generator), tool rendering, memory (buffer + summary + entity), callbacks, vector stores, message utilities (merge/trim/filter), prompts (FewShot + Pipeline), parsers (XML), retrievers (contextual compression), fake models |
-| `langchain_graph` | 128 | 7+ | StateGraph compilation, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, channels, checkpointing (SQLite + Postgres), 6 prebuilt agents (ReAct, Supervisor, Swarm, Handoff, Plan-and-Execute, Hierarchical) |
-| `litellm_dart` | 113 | 7+ | Router strategies, all 12 provider adapters (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace/Together/Mistral), cost calculation, cooldown, embedding API, image generation, budget manager, acompletion pipeline, Redis cache |
-| `langsmith_dart` | 56 | 4+ | Client HTTP API with pluggable transport, LangChainTracer, run/dataset/example CRUD, evaluate() + evaluateComparative() with datasets, tracers (console, confidential, metrics) |
-| `humbl_lm` | — | 2 | Minimal (scaffolded) |
-| `humbl_voice` | — | 2 | Minimal (scaffolded) |
-| `humbl_runtime` | — | 1 | Minimal (scaffolded) |
+| Package | Tests | Test Files | Key Coverage |
+|---|---:|---:|---|
+| `langchain_dart` | 175+ (incl. migrated tracers) | 24 | LCEL chains; runnables (Assign / Pick / Each / Binding / Generator / Retry / Fallbacks); tool rendering; memory (buffer / summary / entity); callbacks; prompts (FewShot, Pipeline); parsers (XML); retrievers (contextual compression); fake models; **tracers** (BaseTracer, Run, RunType, ConsoleTracer, InMemoryTracer — migrated from langsmith_dart 2026-04-21) |
+| `langchain_graph` | 128 | 15 | StateGraph compilation; superstep execution; `Send` fan-out; fan-in barriers; subgraph composition; MessageGraph; channels; checkpointing (InMemory / SQLite / Postgres); 6 prebuilt agents |
+| `litellm_dart` | 113 | 11 | Router strategies (simple / costBased / leastBusy / latencyBased / usageBased); 12 provider adapters; cost calculation; cooldown with exponential backoff; embedding + image APIs; budget manager with rolling window; `acompletion` pipeline; Redis response cache |
+| `langfuse_dart` | 45 | 6 | Client with batch ingestion (auto-flush 5s, max 20 per batch, re-queue on failure); LangfuseTracer extending BaseTracer; Trace / Observation / Score / Usage / Dataset types |
 
-**Framework package totals:** 472 tests (up from 314 at the start of the port effort)
+### FFI plugins (`packages/`)
 
-### humbl_core Test Distribution
+| Package | Tests | Notes |
+|---|---:|---|
+| `whisper_dart` | 51 | Dart bindings + type layer tested. **Native `.so` / `.dll` / `.dylib` binaries not yet bundled — FFI integration paths can't be exercised locally until bundling is done.** |
+| `piper_dart` | 28 | Same shape as `whisper_dart`. |
 
-### Test Distribution
+### Humbl Dart packages
 
-| Area | File(s) | Test Count |
-|------|---------|-----------|
+| Package | Tests | Test Files | Coverage Status |
+|---|---:|---:|---|
+| `humbl_core` | 732 | 72 | 1 flaky: `VoiceSessionRunner.turnEvents`. Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway. |
+| `humbl_app` | 200 | 18 | Blocs and auth/signup/forgot-password widget tests. Low ratio relative to 127 lib files (expected — UI is pump-tested per screen). |
+| `humbl_lm` | 2 | — | Under-tested. LmScheduler has no tests and still references old `ILmGateway`. |
+| `humbl_voice` | 6 | — | Healthy ratio for size. STT/TTS/VAD basics. |
+| `humbl_runtime` | 2 | — | Under-tested. ExecuTorch / LiteRT are stubs; concrete ONNX / llama.cpp wiring has minimal tests. |
+| `humbl_integrations` | 0 | — | Scaffolded 2026-04-21 — no implementations yet. |
+
+## Modules With Zero Tests (humbl_core)
+
+These are the critical untested subsystems called out in `memory/pending-design-items.md` §8:
+
+- `mcp/` — `IMcpTransport`, `McpClient`, `McpBridgeTool`, `McpConnectionManager` have no tests.
+- `resilience/` — `CircuitBreaker`, `RetryPolicy`, `ResilientExecutor`, `Heartbeat` — code exists, no tests.
+- `services/` — `HumblAgent`, `ServiceRegistry`, `ServiceEventBus`, `AgentSession` — no tests.
+- `settings/` — `SettingsService`, `ISettingsProvider`, `SettingDefinition` — no tests.
+- `sync/` — `SyncStatus`, `ISyncStatusService`, `DeviceSyncConfig` — no tests.
+- `input/` — `InputSourceRegistry`, `InputArbitrator`, `IInputSource` — no tests.
+- `voice_activity_detection/` — `IVadEngine`, `SileroVadEngine`, `IWakeWordEngine` — no tests.
+
+Filling these is a standing backlog item.
+
+## humbl_core Test Distribution (sample)
+
+| Area | File | Test Count |
+|---|---|---:|
 | Pipeline orchestrator | `pipeline/pipeline_orchestrator_test.dart` | ~18 |
 | Route decision node | `pipeline/route_decision_node_test.dart` | ~12 |
 | Loop check node | `pipeline/loop_check_node_test.dart` | ~8 |
 | Deliver node tokens | `pipeline/deliver_node_tokens_test.dart` | ~6 |
 | Confirmation flow | `pipeline/confirmation_flow_test.dart` | ~10 |
-| Access control | `tools/gate1_pipeline_access_test.dart` | ~27 |
+| Access control (Gate 1) | `tools/gate1_pipeline_access_test.dart` | ~27 |
 | Tool context filter | `tools/tool_context_filter_test.dart` | ~12 |
 | Confirmation patterns | `tools/confirmation_pattern_test.dart` | ~15 |
 | Resource ID | `tools/resource_id_for_test.dart` | ~8 |
 | Gate 3 resources | `tools/gate3_resource_test.dart` | ~14 |
 | Shell tools | `tools/shell_tools_test.dart` | ~10 |
-| Search tools | `tools/search_tools_test.dart` | ~8 |
-| Model file tools | `tools/model_file_tools_test.dart` | ~6 |
 | Connector registry | `lm_gateway/connector_registry_test.dart` | ~14 |
 | Provider registry | `lm_gateway/provider_registry_test.dart` | ~14 |
 | Model registry | `models/model_registry_test.dart` | ~14 |
 | Memory (noop) | `memory/noop_memory_service_test.dart` | ~22 |
 | Payments | `payments/payment_test.dart` | ~14 |
-| Providers (connected) | `providers/connected_device_provider_test.dart` | ~12 |
-| Providers (tool wiring) | `providers/tool_provider_wiring_test.dart` | ~10 |
-| Providers (typed) | `providers/typed_providers_test.dart` | ~8 |
-| Productivity tools | `tools/productivity_tools_services_test.dart` | ~8 |
 
-### Testing Patterns Used
+## Testing Patterns
 
-- **Fakes over mocks.** Pipeline tests use hand-written fakes (e.g., `FakeIntentProcessor`, `FakeLmGateway`) rather than mockito.
-- **sqflite_ffi for SQLite.** Tests that need SQLite use `sqfliteFfiInit()` + `databaseFactoryFfi` for cross-platform support.
-- **In-memory journal.** `InMemoryJournal` provides a test-friendly `ISystemJournal` implementation.
-- **Isolated state.** Each test creates a fresh `PipelineState` -- no shared mutable state between tests.
+- **Fakes over mocks** for pipeline tests (e.g., `FakeIntentProcessor`, `FakeLmGateway`) — keeps type safety and behavior explicit.
+- **`sqflite_common_ffi`** for SQLite across platforms (`sqfliteFfiInit()` + `databaseFactoryFfi`).
+- **`InMemoryJournal`** test-friendly `ISystemJournal` implementation.
+- **`bloc_test`** for BLoC state machine testing.
+- **`mocktail`** preferred over `mockito` (project convention).
+- **Isolated state** per test; no shared mutable state.
 
 ## Critical Untested Areas
 
-The following areas have no automated test coverage and represent the highest-risk gaps:
+| Area | Risk | Why untested |
+|---|---|---|
+| Full pipeline E2E (text in → output) | High | No test runs through all 4 nodes with a real `HumblChatModel` and `ToolRegistry`. |
+| `ToolRegistry.execute()` full gate chain | High | The `@nonVirtual` template runs all named gates in sequence — no single end-to-end test. |
+| Platform manager native round-trips | High | Kotlin / Swift method channels are untestable without a device. |
+| LmEngine inference | High | Requires native `llama.cpp` libraries and a GGUF model file. |
+| Voice pipeline with audio | Medium | `VoiceSessionRunner` has no test with real audio; `.turnEvents` is flaky. |
+| Cloud sync | Medium | Requires a running Supabase instance. |
+| MCP client | Medium | Needs a mock MCP server. |
+| BLE devices | Medium | Providers throw `UnimplementedError` for DPVR G1 and Mentra Live. |
 
-| Area | Risk | Why Untested |
-|------|------|-------------|
-| `ToolRegistry.execute()` full gate chain | High | The @nonVirtual template runs Gate 4, 1, 2, validation, and 3 in sequence. No single test exercises all five gates end-to-end. |
-| Individual tool `run()` for P0 tools | High | Most tool tests cover registration and schema, not actual execution logic. |
-| Platform manager native round-trips | High | Kotlin/Swift method channels are not testable without a device. |
-| LmEngine inference | High | Requires native llama.cpp libraries and a GGUF model file. |
-| Full pipeline E2E | High | No test sends text through the complete pipeline (input to classify to tool to deliver to output). |
-| Voice pipeline round-trip | Medium | VoiceSessionRunner has no test with actual audio data. |
-| Cloud sync | Medium | Supabase integration is untested (requires running Supabase instance). |
-| MCP client | Medium | McpClient tests would need a mock MCP server. |
-
-## Test Commands
+## Commands
 
 ```bash
-# Run all tests
+# Pure-Dart framework packages (run with `dart`)
+cd packages/langchain_dart && dart test
+cd packages/langchain_graph && dart test
+cd packages/litellm_dart && dart test
+cd packages/langfuse_dart && dart test
+
+# Flutter packages (including FFI plugins)
+cd packages/whisper_dart && flutter test
+cd packages/piper_dart && flutter test
 cd humbl_core && flutter test
+cd humbl_app && flutter test
+cd humbl_lm && flutter test
+cd humbl_voice && flutter test
+cd humbl_runtime && flutter test
 
-# Run a single test file
+# Single file / pattern
 cd humbl_core && flutter test test/pipeline/pipeline_orchestrator_test.dart
-
-# Run tests matching a name pattern
 cd humbl_core && flutter test --name "LoopCheckNode"
-
-# Run with verbose output
-cd humbl_core && flutter test --reporter expanded
 ```
