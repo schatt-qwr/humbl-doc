@@ -5,26 +5,30 @@ title: Gap Analysis
 
 # Gap Analysis
 
-Full category-by-category breakdown of implementation status. Each row shows items completed, partially implemented, and missing.
+_Last refreshed: 2026-04-21._
+
+Full category-by-category breakdown of implementation status. Each row shows items completed, partially implemented, and missing. Counts are structural — they reflect feature presence, not test coverage (see [Test Coverage](./test-coverage) for that).
 
 ## Category Table
 
 | Category | Done | Partial | Missing | Key Gaps |
 |----------|------|---------|---------|----------|
-| Pipeline Architecture | 9 | 1 | 1 | CancellationToken checks in all nodes |
-| Tool System | 9 | 1 | 1 | Parallel tool execution (sequential only today). SP4 callback handlers complete. |
-| Security Model | 5 | 0 | 3 | Privacy mode, cloud-less mode, BYOK key management |
-| Platform Managers | 5 | 1 | 4 | IHardwareDeviceManager, unified device registry, platform+peripheral merge |
+| Pipeline Architecture | 9 | 1 | 1 | `CancellationToken` checks in all long-running nodes (interface exists, enforcement partial) |
+| Tool System | 10 | 1 | 1 | Parallel tool execution (sequential only today). SP4 callback handlers complete. |
+| Security Model | 5 | 0 | 3 | Privacy mode, cloud-less mode, BYOK key management UI |
+| Platform Managers | 5 | 1 | 4 | `IHardwareDeviceManager`, unified device registry, platform+peripheral merge |
 | Memory System | 6 | 0 | 5 | Importance scoring, consolidation, facts extraction. SP5 LangChain base classes complete. |
-| Logging / Metrics | 4 | 1 | 3 | Sentry integration, pipeline trace visualization, analytics cloud sync |
-| LM Gateway / Model Registry | 11 | 0 | 1 | Model download progress UI |
-| Devices SDK | 6 | 3 | 2 | BLE transport protocol (K900), BLE recovery/reconnect |
-| Cloud Agent Backend | 6 | 1 | 1 | End-to-end round-trip testing |
+| Observability / Logging | 6 | 1 | 1 | Pipeline trace visualization UI. Sentry wired (commit `aa2443118`), Langfuse wired (today, decorator stack). |
+| LM Gateway / Model Registry | 12 | 0 | 1 | Model download progress UI. 12 provider adapters (not 11 — includes Gemini, Azure, Bedrock, Vertex, Cohere, HuggingFace, Together, Mistral, OpenAI, Anthropic, Ollama, OpenAI-compatible). |
+| Devices SDK | 6 | 3 | 2 | BLE transport protocol (K900), DPVR G1 + Mentra Live `connect()`/`disconnect()` (throw UnimplementedError) |
+| Cloud Agent Backend | 6 | 1 | 1 | End-to-end round-trip testing (designed, not deployed). |
 | Resource Management | 4 | 1 | 1 | Buffer sharing between concurrent stream tools |
 | Background Agents | 5 | 1 | 0 | Cloud round-trip testing needed |
-| Voice I/O | Interfaces + streaming | 0 | 0 concrete | VoiceSessionRunner exists with streaming LLM-to-TTS, but no concrete providers |
-| App Frontend | 34 screens | 0 | 0 | All screens implemented, zero stubs |
+| Voice I/O | Interfaces + streaming | 0 | 4 concrete | VoiceSessionRunner + streaming LLM-to-TTS works; Whisper.cpp/Piper/platform STT/TTS implementations exist but native binaries not bundled. |
+| App Frontend | 40 screens | 0 | 0 | All screens implemented; UI-SP1/2/3 complete. |
 | App Settings | Done | 0 | 0 | SettingsService + screens implemented |
+| Tracing / Observability Port | 6 | 0 | 0 | BaseTracer/Run/RunType/Console/InMemory migrated to `langchain_dart` 2026-04-21; LangfuseTracer wired. langsmith_dart deleted. |
+| Package Structure | — | — | — | `humbl_integrations` created 2026-04-21; `humbl_features`/`humbl_connectors`/`humbl_utility` deleted (empty shells). |
 
 ## Detailed Breakdown
 
@@ -146,13 +150,15 @@ Full category-by-category breakdown of implementation status. Each row shows ite
 **Missing:**
 - End-to-end round-trip test (dispatch to result delivery)
 
-### App Frontend (34 / 0 / 0)
+### App Frontend (40 / 0 / 0)
 
 **Done:**
-- All 34 screens implemented (zero stubs)
+- All 40 screens implemented (zero stubs). UI-SP1/2/3 all merged.
 - AuthBloc wired to Supabase (signIn/signUp/resetPassword/signOut + auth stream)
 - AgentInbox BLoC + full screen (dispatch dialog, detail sheet, swipe dismiss, pin/unpin)
 - AgentMessageService with injectable HTTP
-- 3 auth screens (login, signup, forgot password)
+- 3 auth screens (login, signup, forgot password) + onboarding 4-step wizard
 - Settings screens (API Keys, LM Providers, general)
-- 20-step startup wiring in main.dart
+- Feature screens: memory browser, notes (CRUD), voice journal (with mood selection + recording), badges grid (progress rings, tiers, detail sheet), voice enrollment
+- Media screens: image viewer (pinch-zoom + page indicators), video player (media_kit, full codec), audio player (media_kit, seek/skip), streaming (platform grid + RTMP config + live preview)
+- 20-step startup wiring in main.dart; Langfuse + Sentry wired.
