@@ -17,7 +17,7 @@ _Last updated: 2026-04-21._
 | Device | 0% | No Android/iOS hardware tests |
 | Manual | 0% | No formal QA test plans |
 
-Baseline count of 1528 (1527 pass, 1 flaky) was verified on 2026-04-10. Re-verified 2026-04-21 after the BaseTracer migration and package consolidation — current total is **1564 tests across 161 files**, all passing. The suite _grew_ through the refactor (net +36) despite discarding the LangSmith-specific `client_test.dart`, `evaluation/evaluate_test.dart`, `evaluation/evaluation_test.dart`, and `feedback`-related tests; `run_test.dart` + `tracer_test.dart` moved into `langchain_dart`.
+Baseline count of 1528 (1527 pass, 1 historically flaky) was verified on 2026-04-10. Re-verified 2026-04-21 after the BaseTracer migration and package consolidation — current total is **1564 tests across 161 files, all passing across 3 consecutive runs (no flakes observed)**. The suite _grew_ through the refactor (net +36) despite discarding the LangSmith-specific `client_test.dart`, `evaluation/evaluate_test.dart`, `evaluation/evaluation_test.dart`, and `feedback`-related tests; `run_test.dart` + `tracer_test.dart` moved into `langchain_dart`.
 
 Prior audits under-reported three domain packages because they counted test files rather than `test(...)` invocations — the corrected numbers for `humbl_voice`, `humbl_lm`, and `humbl_runtime` appear in the per-package table below.
 
@@ -43,7 +43,7 @@ Prior audits under-reported three domain packages because they counted test file
 
 | Package | Tests | Test Files | Groups | Coverage Status |
 |---|---:|---:|---:|---|
-| `humbl_core` | 732 | 72 | 191 | Historically 1 flaky (`VoiceSessionRunner.turnEvents`) — passed in 2026-04-21 run. Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway. |
+| `humbl_core` | 732 | 72 | 191 | All pass. Historical "1 flaky" claim on `VoiceSessionRunner.turnEvents` (now `StreamSessionCoordinator.turnEvents`) did not reproduce in the 2026-04-21 re-verification — the current test is a synchronous type check and is structurally unflakeable. Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway. |
 | `humbl_app` | 200 | 18 | 27 | Blocs + auth/signup/forgot-password widget tests. Low ratio relative to 127 lib files (expected — UI is pump-tested per screen). |
 | `humbl_lm` | 9 | 2 | 3 | Under-tested for 16 lib files. `LmScheduler` has no tests and still references old `ILmGateway`. (Prior "2 tests" number was file count, not test count.) |
 | `humbl_voice` | 52 | 6 | 6 | Healthy ratio — 52 tests across STT/TTS/VAD/audio (not "6 tests" as prior audits implied — the 6 was the file count). |
@@ -104,7 +104,7 @@ Filling these is a standing backlog item.
 | `ToolRegistry.execute()` full gate chain | High | The `@nonVirtual` template runs all named gates in sequence — no single end-to-end test. |
 | Platform manager native round-trips | High | Kotlin / Swift method channels are untestable without a device. |
 | LmEngine inference | High | Requires native `llama.cpp` libraries and a GGUF model file. |
-| Voice pipeline with audio | Medium | `VoiceSessionRunner` has no test with real audio; `.turnEvents` is flaky. |
+| Voice pipeline with audio | Medium | `StreamSessionCoordinator` has no test with real audio. Historical `.turnEvents` flake claim confirmed resolved 2026-04-21. |
 | Cloud sync | Medium | Requires a running Supabase instance. |
 | MCP client | Medium | Needs a mock MCP server. |
 | BLE devices | Medium | Providers throw `UnimplementedError` for DPVR G1 and Mentra Live. |
