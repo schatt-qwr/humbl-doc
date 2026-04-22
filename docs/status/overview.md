@@ -31,7 +31,7 @@ This page is a **snapshot of truth**: what exists today, what's planned next, an
 
 | Package | Tests | Lib files | Status |
 |---|---:|---:|---|
-| `humbl_core` | 732 | 436 | Central Flutter plugin. Tool registry, StateGraph pipeline, 21 platform managers, tools (70+), services, auth, memory (T1–T4 SQLite), LM gateway, devices SDK, voice session orchestrator, payments/quota, MCP, resilience, settings. |
+| `humbl_core` | 834 | 436 | Central Flutter plugin. Tool registry, StateGraph pipeline, 21 platform managers, tools (70+), services, auth, memory (T1–T4 SQLite), LM gateway, devices SDK, session orchestrator, payments/quota, MCP, resilience, settings. Test-backfill session 2026-04-21 added coverage for 7 previously-zero-test modules. |
 | `humbl_app` | 200 | 127 | Primary Flutter app (`com.qwr.humbl`). 40 screens, 16 BLoCs, 24 widgets, navigation, 20-step startup wiring. Langfuse + Sentry wired. |
 | `humbl_lm` | 9 | 16 | 10+ LM connectors (Anthropic, OpenAI, Gemini, Mistral, Cohere, xAI, Sarvam, Ollama, LM Studio, OpenAI-compatible) + LmScheduler (stale — see pending) + adapter training scaffolding. |
 | `humbl_voice` | 52 | 15 | STT/TTS provider implementations, Silero VAD engine, audio stream buffer, mic source. 5 STT + 6 TTS. |

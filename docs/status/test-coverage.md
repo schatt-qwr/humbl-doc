@@ -43,7 +43,7 @@ Prior audits under-reported three domain packages because they counted test file
 
 | Package | Tests | Test Files | Groups | Coverage Status |
 |---|---:|---:|---:|---|
-| `humbl_core` | 732 | 72 | 191 | All pass. Historical "1 flaky" claim on `VoiceSessionRunner.turnEvents` (now `StreamSessionCoordinator.turnEvents`) did not reproduce in the 2026-04-21 re-verification — the current test is a synchronous type check and is structurally unflakeable. Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway. |
+| `humbl_core` | 834 | 79 | 191+ | All pass. Test-backfill session 2026-04-21 added 102 tests across 7 previously-zero-test modules: `sync` (7), `input` (11), `settings` (18), `resilience` (28), `services` (13), `voice_activity_detection` (13), `mcp` (12). Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway, + the 7 new modules. |
 | `humbl_app` | 200 | 18 | 27 | Blocs + auth/signup/forgot-password widget tests. Low ratio relative to 127 lib files (expected — UI is pump-tested per screen). |
 | `humbl_lm` | 9 | 2 | 3 | Under-tested for 16 lib files. `LmScheduler` has no tests and still references old `ILmGateway`. (Prior "2 tests" number was file count, not test count.) |
 | `humbl_voice` | 52 | 6 | 6 | Healthy ratio — 52 tests across STT/TTS/VAD/audio (not "6 tests" as prior audits implied — the 6 was the file count). |
