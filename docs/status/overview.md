@@ -15,7 +15,7 @@ This page is a **snapshot of truth**: what exists today, what's planned next, an
 
 | Package | Port of | Tests | What it is |
 |---|---|---:|---|
-| `langchain_dart` | LangChain Core | 175+ (incl. migrated tracer tests) | Faithful Dart port: Runnables (LCEL), Tools, Memory, Callbacks, Chat Models, Prompts, Output Parsers, Documents, Embeddings, Vector Stores, Retrievers, Stores, **Tracers** (generic BaseTracer/Run/RunType/Console/InMemory migrated here 2026-04-21) |
+| `langchain_dart` | LangChain Core | 200 | Faithful Dart port: Runnables (LCEL), Tools, Memory, Callbacks, Chat Models, Prompts, Output Parsers, Documents, Embeddings, Vector Stores, Retrievers, Stores, **Tracers** (generic BaseTracer/Run/RunType/Console/InMemory migrated here 2026-04-21) |
 | `langchain_graph` | LangGraph | 128 | Faithful Dart port: StateGraph, channels (LastValue, Topic, BinaryOperatorAggregate, EphemeralValue), checkpointing (InMemory, SQLite, Postgres), prebuilt agents (ReAct, Supervisor, Swarm, Handoff, Plan-and-Execute, Hierarchical), Runtime |
 | `litellm_dart` | LiteLLM | 113 | Faithful Dart port: Router (5 strategies), 12 provider adapters, Cost Calculator, SpendLog, Cooldown, Budget, embedding + image APIs, acompletion, Redis cache |
 | `langfuse_dart` | Langfuse | 45 | Faithful Dart port: LangfuseClient with batch ingestion (auto-flush 5s, max 20 per batch, re-queue on failure), LangfuseTracer extends BaseTracer, full Trace / Observation / Score / Usage / Dataset types |
@@ -31,11 +31,11 @@ This page is a **snapshot of truth**: what exists today, what's planned next, an
 
 | Package | Tests | Lib files | Status |
 |---|---:|---:|---|
-| `humbl_core` | 732 (1 flaky) | 436 | Central Flutter plugin. Tool registry, StateGraph pipeline, 21 platform managers, tools (70+), services, auth, memory (T1–T4 SQLite), LM gateway, devices SDK, voice session orchestrator, payments/quota, MCP, resilience, settings. |
+| `humbl_core` | 732 | 436 | Central Flutter plugin. Tool registry, StateGraph pipeline, 21 platform managers, tools (70+), services, auth, memory (T1–T4 SQLite), LM gateway, devices SDK, voice session orchestrator, payments/quota, MCP, resilience, settings. |
 | `humbl_app` | 200 | 127 | Primary Flutter app (`com.qwr.humbl`). 40 screens, 16 BLoCs, 24 widgets, navigation, 20-step startup wiring. Langfuse + Sentry wired. |
-| `humbl_lm` | 2 | 16 | 10+ LM connectors (Anthropic, OpenAI, Gemini, Mistral, Cohere, xAI, Sarvam, Ollama, LM Studio, OpenAI-compatible) + LmScheduler (stale — see pending) + adapter training scaffolding. |
-| `humbl_voice` | 6 | 15 | STT/TTS provider implementations, Silero VAD engine, audio stream buffer, mic source. 5 STT + 6 TTS. |
-| `humbl_runtime` | 2 | 11 | llama.cpp FFI, ONNX, whisper.cpp, ExecuTorch (stub), LiteRT (stub), GpuDetector. |
+| `humbl_lm` | 9 | 16 | 10+ LM connectors (Anthropic, OpenAI, Gemini, Mistral, Cohere, xAI, Sarvam, Ollama, LM Studio, OpenAI-compatible) + LmScheduler (stale — see pending) + adapter training scaffolding. |
+| `humbl_voice` | 52 | 15 | STT/TTS provider implementations, Silero VAD engine, audio stream buffer, mic source. 5 STT + 6 TTS. |
+| `humbl_runtime` | 6 | 11 | llama.cpp FFI, ONNX, whisper.cpp, ExecuTorch (stub), LiteRT (stub), GpuDetector. |
 | `humbl_integrations` | 0 | 1 | **Scaffolded 2026-04-21.** Landing spot for 3rd party service bindings (Spotify, Google, Apple, fitness, email). Replaces deleted `humbl_features` / `humbl_connectors` / `humbl_utility` shells. |
 
 ### Backend (`humbl_backend/`)

@@ -11,42 +11,46 @@ _Last updated: 2026-04-21._
 
 | Test Type | Status | Notes |
 |---|---|---|
-| Unit | healthy ratios in framework packages; gaps in domain packages | ~1500 unit tests across 11 Dart packages (exact count pending re-verify after 2026-04-21 BaseTracer migration) |
+| Unit | healthy ratios in framework packages; gaps in domain packages | **1564 unit tests across 161 files in 11 Dart packages** (verified 2026-04-21 via static count; all packages pass `very_good test`; zero `@Skip` markers) |
 | Integration | 0% | No multi-module wiring tests |
 | E2E | 0% | No full pipeline turn tests |
 | Device | 0% | No Android/iOS hardware tests |
 | Manual | 0% | No formal QA test plans |
 
-Baseline count of 1528 (1527 pass, 1 flaky) was verified on 2026-04-10. The 2026-04-21 BaseTracer migration moved `run_test.dart` + `tracer_test.dart` from `langsmith_dart` into `langchain_dart`, and discarded the LangSmith-specific `client_test.dart`, `evaluation/evaluate_test.dart`, `evaluation/evaluation_test.dart`, and `feedback`-related tests. Current total is approximately **1500 tests**; exact re-verification is pending.
+Baseline count of 1528 (1527 pass, 1 flaky) was verified on 2026-04-10. Re-verified 2026-04-21 after the BaseTracer migration and package consolidation — current total is **1564 tests across 161 files**, all passing. The suite _grew_ through the refactor (net +36) despite discarding the LangSmith-specific `client_test.dart`, `evaluation/evaluate_test.dart`, `evaluation/evaluation_test.dart`, and `feedback`-related tests; `run_test.dart` + `tracer_test.dart` moved into `langchain_dart`.
+
+Prior audits under-reported three domain packages because they counted test files rather than `test(...)` invocations — the corrected numbers for `humbl_voice`, `humbl_lm`, and `humbl_runtime` appear in the per-package table below.
 
 ## Tests by Package
 
 ### Framework packages (`packages/`)
 
-| Package | Tests | Test Files | Key Coverage |
-|---|---:|---:|---|
-| `langchain_dart` | 175+ (incl. migrated tracers) | 24 | LCEL chains; runnables (Assign / Pick / Each / Binding / Generator / Retry / Fallbacks); tool rendering; memory (buffer / summary / entity); callbacks; prompts (FewShot, Pipeline); parsers (XML); retrievers (contextual compression); fake models; **tracers** (BaseTracer, Run, RunType, ConsoleTracer, InMemoryTracer — migrated from langsmith_dart 2026-04-21) |
-| `langchain_graph` | 128 | 15 | StateGraph compilation; superstep execution; `Send` fan-out; fan-in barriers; subgraph composition; MessageGraph; channels; checkpointing (InMemory / SQLite / Postgres); 6 prebuilt agents |
-| `litellm_dart` | 113 | 11 | Router strategies (simple / costBased / leastBusy / latencyBased / usageBased); 12 provider adapters; cost calculation; cooldown with exponential backoff; embedding + image APIs; budget manager with rolling window; `acompletion` pipeline; Redis response cache |
-| `langfuse_dart` | 45 | 6 | Client with batch ingestion (auto-flush 5s, max 20 per batch, re-queue on failure); LangfuseTracer extending BaseTracer; Trace / Observation / Score / Usage / Dataset types |
+| Package | Tests | Test Files | Groups | Key Coverage |
+|---|---:|---:|---:|---|
+| `langchain_dart` | 200 | 24 | 53 | LCEL chains; runnables (Assign / Pick / Each / Binding / Generator / Retry / Fallbacks); tool rendering; memory (buffer / summary / entity); callbacks; prompts (FewShot, Pipeline); parsers (XML); retrievers (contextual compression); fake models; **tracers** (BaseTracer, Run, RunType, ConsoleTracer, InMemoryTracer — migrated from langsmith_dart 2026-04-21) |
+| `langchain_graph` | 128 | 15 | 38 | StateGraph compilation; superstep execution; `Send` fan-out; fan-in barriers; subgraph composition; MessageGraph; channels; checkpointing (InMemory / SQLite / Postgres); 6 prebuilt agents |
+| `litellm_dart` | 113 | 11 | 30 | Router strategies (simple / costBased / leastBusy / latencyBased / usageBased); 12 provider adapters; cost calculation; cooldown with exponential backoff; embedding + image APIs; budget manager with rolling window; `acompletion` pipeline; Redis response cache |
+| `langfuse_dart` | 45 | 6 | 13 | Client with batch ingestion (auto-flush 5s, max 20 per batch, re-queue on failure); LangfuseTracer extending BaseTracer; Trace / Observation / Score / Usage / Dataset types |
 
 ### FFI plugins (`packages/`)
 
-| Package | Tests | Notes |
-|---|---:|---|
-| `whisper_dart` | 51 | Dart bindings + type layer tested. **Native `.so` / `.dll` / `.dylib` binaries not yet bundled — FFI integration paths can't be exercised locally until bundling is done.** |
-| `piper_dart` | 28 | Same shape as `whisper_dart`. |
+| Package | Tests | Test Files | Groups | Notes |
+|---|---:|---:|---:|---|
+| `whisper_dart` | 51 | 3 | 11 | Dart bindings + type layer tested. **Native `.so` / `.dll` / `.dylib` binaries not yet bundled — FFI integration paths can't be exercised locally until bundling is done.** |
+| `piper_dart` | 28 | 2 | 6 | Same shape as `whisper_dart`. |
 
 ### Humbl Dart packages
 
-| Package | Tests | Test Files | Coverage Status |
-|---|---:|---:|---|
-| `humbl_core` | 732 | 72 | 1 flaky: `VoiceSessionRunner.turnEvents`. Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway. |
-| `humbl_app` | 200 | 18 | Blocs and auth/signup/forgot-password widget tests. Low ratio relative to 127 lib files (expected — UI is pump-tested per screen). |
-| `humbl_lm` | 2 | — | Under-tested. LmScheduler has no tests and still references old `ILmGateway`. |
-| `humbl_voice` | 6 | — | Healthy ratio for size. STT/TTS/VAD basics. |
-| `humbl_runtime` | 2 | — | Under-tested. ExecuTorch / LiteRT are stubs; concrete ONNX / llama.cpp wiring has minimal tests. |
-| `humbl_integrations` | 0 | — | Scaffolded 2026-04-21 — no implementations yet. |
+| Package | Tests | Test Files | Groups | Coverage Status |
+|---|---:|---:|---:|---|
+| `humbl_core` | 732 | 72 | 191 | Historically 1 flaky (`VoiceSessionRunner.turnEvents`) — passed in 2026-04-21 run. Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway. |
+| `humbl_app` | 200 | 18 | 27 | Blocs + auth/signup/forgot-password widget tests. Low ratio relative to 127 lib files (expected — UI is pump-tested per screen). |
+| `humbl_lm` | 9 | 2 | 3 | Under-tested for 16 lib files. `LmScheduler` has no tests and still references old `ILmGateway`. (Prior "2 tests" number was file count, not test count.) |
+| `humbl_voice` | 52 | 6 | 6 | Healthy ratio — 52 tests across STT/TTS/VAD/audio (not "6 tests" as prior audits implied — the 6 was the file count). |
+| `humbl_runtime` | 6 | 2 | 1 | Under-tested. ExecuTorch / LiteRT are stubs; concrete ONNX / llama.cpp wiring has minimal tests. |
+| `humbl_integrations` | 0 | 0 | 0 | Scaffolded 2026-04-21 — no implementations yet, no tests expected. |
+
+**Monorepo totals:** 1564 tests across 161 files, 379 `group(...)` blocks, zero `@Skip(...)` markers. All packages pass.
 
 ## Modules With Zero Tests (humbl_core)
 
