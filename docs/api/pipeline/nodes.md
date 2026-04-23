@@ -5,122 +5,110 @@ title: Pipeline Nodes
 
 # Pipeline Nodes
 
-All 7 nodes in the pipeline graph. Each node reads specific fields from `PipelineState`, performs its work, and returns a modified copy.
+The 4 nodes in the current pipeline graph (post-SP6 refactor, 2026-03-31). Built via `buildHumblPipeline()` in `humbl_core/lib/pipeline/build_pipeline.dart`, compiled on top of `StateGraph` from `langchain_graph`.
+
+:::note Historical
+The earlier 7-node shape (`ContextAssemblyNode` / `ClassifyNode` / `RouteDecisionNode` / `AskUserNode` / `ExecuteToolNode` / `DeliverNode` / `LoopCheckNode`) was collapsed into this 4-node flow during SP6. Intent classification + route decision are now handled inside the `agent` node by the `HumblChatModel` itself (tool calls vs direct chat response), with conditional edges driving the tool-execution loop.
+:::
 
 ## Node Summary
 
 | Node | Name | Reads | Writes |
 |------|------|-------|--------|
-| ContextAssemblyNode | `context_assembly` | inputText, userId, conversationHistory | memory, availableTools, adaptedPrompt, conversationHistory |
-| ClassifyNode | `classify` | inputText, availableTools, activeToolName | intent, confidence, routeDecision, intentStatus, activeToolName, toolParams |
-| RouteDecisionNode | `route_decision` | routeDecision, intent, confidence | routeDecision (refined), statusMessage |
-| AskUserNode | `ask_user` | followUpQuestion | outputText, outputModality |
-| ExecuteToolNode | `execute_tool` | activeToolName, toolParams, userConfirmed | toolResult, needsConfirmation, confirmationMessage |
-| DeliverNode | `deliver` | toolResult, cloudResponse, outputText | outputText, memoryWritten, journalLogged |
-| LoopCheckNode | `loop_check` | pendingSteps, pendingToolCalls, iterationCount | (routes back or terminates) |
+| `createContextAssemblyNode` | `context_assembly` | `messages` | `messages` (augmented with system + retrieved memory) |
+| Agent node (inline in `buildHumblPipeline`) | `agent` | `messages` | `messages` (new `AIMessage`, possibly with tool calls) |
+| `createToolsNode` | `tools` | `messages` (last `AIMessage.toolCalls`) | `messages` (new `ToolMessage`(s)) |
+| `createDeliverNode` | `deliver` | `messages` | (writes to memory + conversation store) |
 
-## ContextAssemblyNode
+## Graph topology
 
-**Name:** `context_assembly`
-
-Assembles the full context for classification: queries memory, filters available tools, formats conversation history.
-
-- Calls `IMemoryService.assembleContext()` to get relevant memories.
-- Filters `ToolRegistry.allTools` by user tier, device connectivity, and tool state.
-- Exports available tool schemas via `toMcpSchema()` for the LM.
-- Applies `IPromptAdapter` if configured (model-specific prompt formatting).
-- Subscribes to `ToolRegistry.toolsChanged` to rebuild tool list dynamically.
-
-## ClassifyNode
-
-**Name:** `classify`
-
-Classifies user intent using a tiered approach:
-
-1. **Tier 0 (pre-classified):** If `activeToolName` is already set (from device mapping or scout agent), skip classification entirely.
-2. **Tier 1 (keyword matching):** Reserved for future lightweight keyword-based routing.
-3. **Tier 2 (LM classification):** Sends the input text and available tools to `ILmGateway.complete()` and parses the structured JSON response.
-
-The LM response is expected to be structured JSON:
-
-```json
-{"type": "tool_call", "tool": "wifi_toggle", "params": {"enabled": true}}
+```
+START
+  │
+  ▼
+context_assembly
+  │
+  ▼
+agent ────── conditional ──────┐
+  │   has tool calls?          │
+  │   → tools                  │
+  │   otherwise → deliver      │
+  ▼                            ▼
+tools                        deliver
+  │                            │
+  └──→ agent (loop back)       ▼
+                              END
 ```
 
-or
+Edges (from `build_pipeline.dart`):
 
-```json
-{"type": "chat", "response": "I can help with that."}
+```dart
+graph.addEdge(START, 'context_assembly');
+graph.addEdge('context_assembly', 'agent');
+graph.addConditionalEdges('agent', _toolsCondition);
+graph.addEdge('tools', 'agent');
+graph.addEdge('deliver', END);
 ```
 
-Sets `routeDecision` based on classification result:
-- Tool call with high confidence: `ExecutionPath.fast`
-- Tool call with low confidence or missing params: `ExecutionPath.slmLoop`
-- Complex query: `ExecutionPath.cloudLoop`
-- Chat response: delivered directly via `ExecutionPath.fast`
+`_toolsCondition` routes to `'tools'` when the last `AIMessage` carries tool calls; otherwise it routes to `'deliver'`.
 
-## RouteDecisionNode
+## context_assembly
 
-**Name:** `route_decision`
+**Factory:** `createContextAssemblyNode({memory, toolRegistry, promptAdapter})`
 
-Validates and refines the route decision from ClassifyNode. Checks:
+**Responsibility:** Prepare the `messages` channel for the agent. Queries `IMemoryService.assembleContext()` for relevant T2/T3/T4 memory, filters `ToolRegistry.allTools` by user tier + device connectivity + tool state, applies the optional `IPromptAdapter` for model-specific prompt formatting, and prepends the resulting system message to the channel.
 
-- Is the selected tool available in the current context?
-- Does the user's tier allow cloud routing?
-- Is connectivity sufficient for the chosen path?
+**File:** `humbl_core/lib/pipeline/nodes/context_assembly_node.dart`
 
-Sets `statusMessage` for UI progress indicator.
+## agent
 
-## AskUserNode
+**Declared inline in** `build_pipeline.dart`:
 
-**Name:** `ask_user`
+```dart
+graph.addNode('agent', (state) async {
+  final messages = state['messages'] as List<BaseMessage>? ?? [];
+  final config = getRuntimeConfig();
+  final response = await model.invoke(messages, config: config);
+  return {'messages': <BaseMessage>[response]};
+});
+```
 
-Handles follow-up questions when the SLM needs more information. Sets `outputText` to the follow-up question and `outputModality` based on input modality.
+**Responsibility:** Call `HumblChatModel.invoke()` (which routes through LiteLLM `Router` → provider → model). The returned `AIMessage` either carries tool calls (condition routes to `tools`) or is a direct chat response (condition routes to `deliver`).
 
-## ExecuteToolNode
+No standalone node file — the logic is short enough to live in `build_pipeline.dart`.
 
-**Name:** `execute_tool`
+## tools
 
-Executes the selected tool through the `ToolRegistry`:
+**Factory:** `createToolsNode(toolRegistry)`
 
-1. Looks up tool by `activeToolName`.
-2. Builds a `ToolContext` from the pipeline state.
-3. Calls `tool.execute(ctx, params)` (the @nonVirtual template handles all gate checks).
-4. If the tool returns `confirmationRequired`, sets `needsConfirmation = true` and `confirmationMessage`.
-5. Otherwise, stores the `ToolResult` in state.
+**Responsibility:** Delegates to the framework `ToolNode` from `langchain_graph/prebuilt`. For each tool call on the last `AIMessage`, looks up the tool in `ToolRegistry`, executes it through the named-gate chain (Policy → Access → Permission → validate → Quota → Resource), and appends a `ToolMessage` with the result. Confirmation-required tools raise a `GraphInterrupt` for the app to surface the prompt; on resume, execution continues.
 
-If `resourceManager` is provided, Gate 3 (resource leasing) is enforced automatically by the `HumblTool.execute()` template.
+**File:** `humbl_core/lib/pipeline/nodes/execute_tool_node.dart` (retains the pre-SP6 filename).
 
-## DeliverNode
+## deliver
 
-**Name:** `deliver`
+**Factory:** `createDeliverNode({memory, conversationStore})`
 
-Formats the final output and persists state:
+**Responsibility:** Final sink. Writes the completed turn to `IMemoryService.logInteraction()` (T4 audit) and appends messages to `ConversationStore`. The pipeline's consumer reads the last `AIMessage` content from the final graph state.
 
-1. Constructs `outputText` from `toolResult`, `cloudResponse`, or existing `outputText`.
-2. Writes the interaction to `IMemoryService.logInteraction()` (if available).
-3. Appends turns to `ConversationStore` (if available).
-4. Sets `memoryWritten` and `journalLogged` flags.
+**File:** `humbl_core/lib/pipeline/nodes/deliver_node.dart`
 
-## LoopCheckNode
+## Where the old node responsibilities went
 
-**Name:** `loop_check`
+| Old 7-node name | New location |
+|-----------------|--------------|
+| `ContextAssemblyNode` | Same — kept as `context_assembly` node. |
+| `ClassifyNode` | The `HumblChatModel` inside the `agent` node decides whether to call a tool or chat — classification happens as part of the agent's normal forward pass, not a separate node. |
+| `RouteDecisionNode` | Gone. The `_toolsCondition` conditional edge replaces it. |
+| `AskUserNode` | Gone as a node. Tools that need user input raise `GraphInterrupt` via the confirmation framework; agent iteration picks up after resume. |
+| `ExecuteToolNode` | Renamed to the `tools` node. Delegates to framework `ToolNode`. |
+| `DeliverNode` | Same — kept as `deliver` node. |
+| `LoopCheckNode` | Gone. Framework `recursionLimit` (default 20) + conditional edges enforce termination. |
 
-Decides whether the pipeline should loop or terminate:
+## Checkpointing
 
-- If `pendingSteps` is non-empty, routes back to `classify` (multi-step plan).
-- If `pendingToolCalls` is non-empty (from cloud response with multiple tool calls), routes back to `execute_tool`.
-- If iteration count exceeds the max (20), returns error.
-- Otherwise, returns null (pipeline terminates).
+The compiled graph accepts a `BaseCheckpointSaver` at compile time (`buildHumblPipeline(checkpointer: ...)`). `humbl_core` extends `ICheckpointStore` from `BaseCheckpointSaver` so the app can persist intermediate states (SQLite in production, `InMemorySaver` in tests).
 
-## Node File Locations
+## Cancellation
 
-| Node | File |
-|------|------|
-| ContextAssemblyNode | `humbl_core/lib/pipeline/nodes/context_assembly_node.dart` |
-| ClassifyNode | `humbl_core/lib/pipeline/nodes/classify_node.dart` |
-| RouteDecisionNode | `humbl_core/lib/pipeline/nodes/route_decision_node.dart` |
-| AskUserNode | `humbl_core/lib/pipeline/nodes/ask_user_node.dart` |
-| ExecuteToolNode | `humbl_core/lib/pipeline/nodes/execute_tool_node.dart` |
-| DeliverNode | `humbl_core/lib/pipeline/nodes/deliver_node.dart` |
-| LoopCheckNode | `humbl_core/lib/pipeline/nodes/loop_check_node.dart` |
+`RunnableConfig.configurable['_cancellationToken']` is read inside long-running nodes. The token is propagated from the app layer (`StreamSessionCoordinator` or scout-agent dispatcher) through `getRuntimeConfig()`. Not yet enforced in every node — tracked in `memory/pending-design-items.md`.

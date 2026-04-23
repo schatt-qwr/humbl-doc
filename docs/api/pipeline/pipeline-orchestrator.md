@@ -13,7 +13,7 @@ Pre-wired pipeline graph that supports concurrent runs. Entry point for processi
 
 ```dart
 PipelineOrchestrator({
-  required ILmGateway lmGateway,
+  required BaseChatModel model,  // HumblChatModel in production (post-SP7.5)
   required ModelRegistry modelRegistry,
   required ToolRegistry toolRegistry,
   ISystemJournal? journal,
@@ -26,7 +26,7 @@ PipelineOrchestrator({
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `lmGateway` | `ILmGateway` | Yes | Routes LM requests to the best available provider |
+| `model` | `BaseChatModel` | Yes | Single LM entry point (typically `HumblChatModel`, which delegates to LiteLLM `Router`) |
 | `modelRegistry` | `ModelRegistry` | Yes | Model metadata and capability registry |
 | `toolRegistry` | `ToolRegistry` | Yes | All registered tools |
 | `journal` | `ISystemJournal?` | No | Persistent event logging |
@@ -58,7 +58,7 @@ Stream version of `run()`. Yields state after each node for real-time UI progres
 | Property | Type | Description |
 |----------|------|-------------|
 | `totalRunCount` | `int` | Number of pipeline runs started (diagnostics) |
-| `gateway` | `ILmGateway` | The injected LM gateway |
+| `model` | `BaseChatModel` | The injected LM model |
 | `graph` | `StateGraph` | The underlying graph (for testing/introspection) |
 | `toolRegistry` | `ToolRegistry` | The injected tool registry |
 | `modelRegistry` | `ModelRegistry` | The injected model registry |

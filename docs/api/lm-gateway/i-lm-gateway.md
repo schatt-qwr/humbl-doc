@@ -1,138 +1,99 @@
 ---
 sidebar_position: 1
-title: ILmGateway
+title: HumblChatModel
 ---
 
-# ILmGateway
+# HumblChatModel (single LM entry point)
 
-Top-level gateway interface. Pure routing engine that abstracts all LM providers behind a single API. The concrete `HumblLmGateway` implementation wraps the `litellm_dart` `Router` for provider selection and supports 5 routing strategies (simple, costBased, leastBusy, latencyBased, usageBased).
+`HumblChatModel extends BaseChatModel` is the single LM entry point for Humbl. Replaced the previous `ILmGateway` interface in SP7.5 (2026-04-01) — the old request/response envelope types (`LmGatewayRequest`, `LmGatewayResponse`, `LmGatewayToken`) are gone; everything uses `langchain_dart` message types + `RunnableConfig`.
 
-**File:** `humbl_core/lib/lm_gateway/i_lm_gateway.dart`
-**Implementation:** `HumblLmGateway` wraps `Router` from `litellm_dart`
+**File:** `humbl_core/lib/lm_gateway/humbl_chat_model.dart`
 
-## Interface
+:::note Why the page title says "HumblChatModel" but the URL says "i-lm-gateway"
+The doc URL hasn't been redirected yet. External links to `./i-lm-gateway` still resolve here. A cleanup pass will move this file to `humbl-chat-model.md` in a later session.
+:::
+
+## Class shape
 
 ```dart
-abstract class ILmGateway {
-  Future<LmGatewayResponse> complete(LmGatewayRequest request);
-  Stream<LmGatewayToken> stream(LmGatewayRequest request);
+class HumblChatModel extends BaseChatModel {
+  HumblChatModel({
+    required Router router,
+    required QuotaManager quotaManager,
+    Map<String, Set<LmProviderType>>? tierConstraints,
+  });
+
+  @override
+  Future<ChatResult> generateMessages(
+    List<BaseMessage> messages, {
+    List<String>? stop,
+    RunnableConfig? config,
+  });
+
+  // invoke() and stream() are inherited from BaseChatModel and delegate
+  // to generateMessages() + the chunk-streaming default.
+
+  void addProvider(Deployment deployment, CompletionFunction fn);
+  void removeProvider(String modelId);
 }
 ```
 
-## LmGatewayRequest
+Under the hood, `generateMessages` consults `QuotaManager.checkRateLimit`, picks a provider via `Router`, and records usage via `QuotaManager.recordUsage` + `SpendLog`.
+
+## Why `BaseChatModel` and not a Humbl-specific interface
+
+Every LangChain-ecosystem feature (tools, memory, callbacks, tracers) expects `BaseChatModel`. By extending it directly, `HumblChatModel` drops straight into:
+
+- Pipeline's `agent` node (`await model.invoke(messages, config: config)`).
+- Background agents (`AgentContext.model` is `BaseChatModel`).
+- Runnable composition (LCEL pipes / chains).
+- Tool-aware model (`.bindTools(tools)`).
+
+## Routing — LiteLLM Router (internal)
+
+`HumblChatModel` wraps `Router` from `litellm_dart`. Routing strategies:
+
+| Strategy | When |
+|---|---|
+| `simple` | First eligible deployment |
+| `costBased` | Cheapest per-token |
+| `leastBusy` | Fewest in-flight requests |
+| `latencyBased` | Lowest p50 latency window |
+| `usageBased` | Favor deployments furthest from their budget |
+
+`Router` handles cooldown (exponential backoff) + fallback chains + budget enforcement internally. Humbl's concerns (tier constraints + quota) wrap it at the `HumblChatModel` layer.
+
+## Tier constraints
+
+A map of tier → allowed provider types. Default:
 
 ```dart
-class LmGatewayRequest {
-  final List<Map<String, dynamic>> messages;
-  final List<Map<String, dynamic>>? tools;
-  final String? preferredModelId;
-  final QueryCategory? category;
-  final String userId;
-  final String tier;
-  final int? estimatedTokenCount;
-  final RequestPriority priority;
-}
+const defaultTierConstraints = {
+  'free':     { onDevice, localNetwork, byokCloud },
+  'standard': { onDevice, localNetwork, appCloud, byokCloud },
+  'premium':  { onDevice, localNetwork, appCloud, byokCloud },
+  'ultimate': { onDevice, localNetwork, appCloud, byokCloud },
+};
 ```
 
-| Field | Description |
-|-------|-------------|
-| `messages` | Chat messages in OpenAI-compatible format |
-| `tools` | MCP tool schemas for function calling |
-| `preferredModelId` | Hint for model selection (gateway may override) |
-| `category` | Query complexity category for routing decisions |
-| `userId` | For quota tracking |
-| `tier` | User tier (`free`, `standard`, `plus`, `ultimate`) |
-| `estimatedTokenCount` | For quota pre-check |
-| `priority` | `realtime`, `background`, `batch` |
+Tiers gate access to `appCloud` (Humbl-subsidized cloud) but every tier can use `byokCloud` (user's own keys) and local / local-network models.
 
-### RequestPriority
+## Streaming
 
-| Priority | Description |
-|----------|-------------|
-| `realtime` | User-facing, low latency required |
-| `background` | Scout agents, not time-sensitive |
-| `batch` | Bulk operations, lowest priority |
+`stream()` is inherited from `BaseChatModel` and yields `AIMessageChunk`s. Wired into the voice pipeline (`StreamSessionCoordinator.onPipelineStream`) so LLM tokens can pipe to `TTS.synthesizeFromStream()` in real-time.
 
-## LmGatewayResponse
+## Scheduling
 
-```dart
-class LmGatewayResponse {
-  final String text;
-  final List<LmToolCall>? toolCalls;
-  final LmFinishReason finishReason;
-  final String providerUsed;
-  final String modelUsed;
-  final int inputTokens;
-  final int outputTokens;
-  final int latencyMs;
-  final bool wasEscalated;
-  final String? escalatedFrom;
-}
-```
+For local-model inference (one `llama.cpp` instance can only serve one request at a time), wrap the model in an `LmScheduler` (see [Scheduling](./scheduling)) to get realtime / background / cloud priority queuing on top.
 
-| Field | Description |
-|-------|-------------|
-| `text` | Generated text response |
-| `toolCalls` | Tool calls requested by the model |
-| `finishReason` | `stop`, `toolCall`, `lengthLimit`, `error` |
-| `providerUsed` | Which provider instance handled the request |
-| `modelUsed` | Which model was used |
-| `wasEscalated` | Whether the request was escalated from one provider to another |
+## Migration notes (from the old ILmGateway)
 
-## LmGatewayToken
+| Old call | New call |
+|---|---|
+| `gateway.complete(LmGatewayRequest(messages: ..., tools: ..., tier: ...))` | `model.invoke(messages, config: RunnableConfig(configurable: {'_tools': tools, 'tier': tier}))` |
+| `response.toolCalls` | `aiMessage.toolCalls` (from `langchain_dart.AIMessage`) |
+| `gateway.stream(...)` | `model.stream(messages, config: ...)` → `Stream<AIMessageChunk>` |
+| `RequestPriority.realtime / background / batch` | `LmScheduler.invoke(messages, priority: LmPriority.realtime \| background \| cloud)` |
+| `LmGatewayResponse.providerUsed / modelUsed / latencyMs` | Available via `BaseCallbackHandler.on_llm_end` callback (run metadata), not on the message itself. |
 
-Streaming token for `stream()`:
-
-```dart
-class LmGatewayToken {
-  final String text;
-  final String providerId;
-  final bool isDone;
-}
-```
-
-## LmToolCall
-
-```dart
-class LmToolCall {
-  final String id;
-  final String name;
-  final Map<String, dynamic> arguments;
-}
-```
-
-## Concrete Implementation: HumblLmGateway
-
-`HumblLmGateway` implements `ILmGateway` with policy-based routing:
-
-1. Filter providers by tier constraints.
-2. Filter by cooldown (exponential backoff for failing providers).
-3. Filter by health status.
-4. Filter by context window (skip if request too large).
-5. Sort by policy preset (`auto`, `onDeviceOnly`, `cloudOnly`, `cloudFirst`, custom).
-6. Try first eligible provider.
-7. On failure: record cooldown, try next if auto-failover enabled.
-8. All exhausted: return error response.
-
-**File:** `humbl_core/lib/lm_gateway/humbl_lm_gateway.dart`
-
-## Usage Example
-
-```dart
-final response = await gateway.complete(LmGatewayRequest(
-  messages: [
-    {'role': 'system', 'content': systemPrompt},
-    {'role': 'user', 'content': 'Turn on WiFi'},
-  ],
-  tools: toolSchemas,
-  userId: 'user-1',
-  tier: 'standard',
-  priority: RequestPriority.realtime,
-));
-
-if (response.toolCalls != null) {
-  for (final call in response.toolCalls!) {
-    await toolRegistry.lookup(call.name)?.execute(ctx, call.arguments);
-  }
-}
-```
+The old `LmGatewayRequest` + `LmGatewayResponse` envelope types are fully deleted — grep-replace them with `langchain_dart` primitives.

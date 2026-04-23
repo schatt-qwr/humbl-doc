@@ -102,20 +102,31 @@ Interrupts are buffered from the `interrupts` stream and checked before each nod
 ## Usage Example
 
 ```dart
-final graph = StateGraph()
-  ..addNode(ClassifyNode(gateway))
-  ..addNode(RouteDecisionNode())
-  ..addNode(ExecuteToolNode(registry))
-  ..addNode(DeliverNode(memoryService))
-  ..addEdge(Edge.direct(from: 'classify', to: 'route_decision'))
-  ..addEdge(Edge.conditional(
-    from: 'route_decision',
-    condition: (s) => s.routeDecision == ExecutionPath.fast
-        ? 'execute_tool' : 'deliver',
-  ))
-  ..addEdge(Edge.direct(from: 'execute_tool', to: 'deliver'))
-  ..setEntryPoint('classify')
-  ..setMaxSteps(20);
+// The real pipeline is built by buildHumblPipeline() in humbl_core.
+// This is a minimal StateGraph example — see pipeline/nodes.md for the
+// actual 4-node graph used in production.
+final graph = StateGraph(channels: {
+  'messages': BinaryOperatorAggregate<List<BaseMessage>>(
+    () => <BaseMessage>[],
+    (current, update) => [...current, ...update],
+  ),
+});
+
+graph.addNode('context_assembly', createContextAssemblyNode(...));
+graph.addNode('agent', (state) async {
+  final messages = state['messages'] as List<BaseMessage>? ?? [];
+  return {'messages': [await model.invoke(messages)]};
+});
+graph.addNode('tools', createToolsNode(toolRegistry));
+graph.addNode('deliver', createDeliverNode(...));
+
+graph.addEdge(START, 'context_assembly');
+graph.addEdge('context_assembly', 'agent');
+graph.addConditionalEdges('agent', _toolsCondition);
+graph.addEdge('tools', 'agent');
+graph.addEdge('deliver', END);
+
+final compiled = graph.compile(recursionLimit: 20);
 
 final result = await graph.run(initialState);
 ```

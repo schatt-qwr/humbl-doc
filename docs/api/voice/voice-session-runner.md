@@ -1,18 +1,22 @@
 ---
 sidebar_position: 2
-title: VoiceSessionRunner
+title: StreamSessionCoordinator
 ---
 
-# VoiceSessionRunner
+# StreamSessionCoordinator
 
-Main voice pipeline orchestrator. Discovers the mic tool via ToolRegistry, feeds audio through AEC, RingBuffer, VAD, STT, pipeline dispatch, and TTS with barge-in support.
+Stream session orchestrator (voice + future multimodal). Discovers the mic tool via ToolRegistry, feeds audio through AEC, RingBuffer, VAD, STT, pipeline dispatch, and TTS with barge-in support.
 
-**File:** `humbl_core/lib/voice_session/voice_session_runner.dart`
+:::note Renamed 2026-04-21
+Was `VoiceSessionRunner` (at `humbl_core/lib/voice_session/voice_session_runner.dart`). Class renamed to `StreamSessionCoordinator`, directory moved to `humbl_core/lib/session/`, audio files moved to `humbl_core/lib/session/audio/`. The interface was renamed from `IVoiceSessionController` to `IStreamSessionCoordinator`. See commit `7a5603214`.
+:::
+
+**File:** `humbl_core/lib/session/stream_session_coordinator.dart`
 
 ## Constructor
 
 ```dart
-VoiceSessionRunner({
+StreamSessionCoordinator({
   required ToolRegistry toolRegistry,
   required IVadEngine vad,
   required ISttProvider stt,
@@ -81,12 +85,12 @@ class MicSource {
 }
 ```
 
-## IVoiceSessionController
+## IStreamSessionCoordinator
 
-Interface that `VoiceSessionRunner` implements:
+Interface that `StreamSessionCoordinator` implements:
 
 ```dart
-abstract class IVoiceSessionController {
+abstract class IStreamSessionCoordinator {
   VoiceSessionState get state;
   Stream<VoiceSessionState> get stateChanges;
   Stream<VoiceTurnEvent> get turnEvents;

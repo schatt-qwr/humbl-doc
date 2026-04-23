@@ -23,7 +23,7 @@ The four framework packages are documented in the [LangChain Framework](../archi
 - [PipelineOrchestrator](./pipeline/pipeline-orchestrator) -- Entry point for running pipeline turns.
 - [PipelineState](./pipeline/pipeline-state) -- Immutable state object that flows through every node.
 - [StateGraph](./pipeline/state-graph) -- Generic graph engine with nodes and conditional edges.
-- [Pipeline Nodes](./pipeline/nodes) -- All 7 nodes and what each reads/writes.
+- [Pipeline Nodes](./pipeline/nodes) -- 4 nodes (`context_assembly`, `agent`, `tools`, `deliver`) and what each reads/writes.
 
 ### [Tool System](./tools/humbl-tool)
 
@@ -33,9 +33,9 @@ The four framework packages are documented in the [LangChain Framework](../archi
 
 ### [LM Gateway](./lm-gateway/i-lm-gateway)
 
-- [ILmGateway](./lm-gateway/i-lm-gateway) -- Top-level gateway interface for LM routing.
-- [Connectors](./lm-gateway/connectors) -- ILmConnector interface and 11 built-in connectors.
-- [Scheduling](./lm-gateway/scheduling) -- LmScheduler for priority preemption and background queuing.
+- [HumblChatModel](./lm-gateway/i-lm-gateway) -- `HumblChatModel extends BaseChatModel` — the single LM entry point. Delegates to LiteLLM `Router` for provider selection. Replaced the old `ILmGateway` interface in SP7.5.
+- [Connectors](./lm-gateway/connectors) -- 10+ built-in connectors (Anthropic, OpenAI, Ollama, Gemini, Mistral, Cohere, LM Studio, xAI, Sarvam, OpenAI-compatible).
+- [Scheduling](./lm-gateway/scheduling) -- `LmScheduler` wrapping `BaseChatModel` with realtime / background / cloud priority queuing.
 
 ### [Memory](./memory/i-memory-service)
 
@@ -69,7 +69,7 @@ The four framework packages are documented in the [LangChain Framework](../archi
 ### [Voice I/O](./voice/vad-stt-tts)
 
 - [VAD, STT, TTS](./voice/vad-stt-tts) -- Voice pipeline interfaces.
-- [VoiceSessionRunner](./voice/voice-session-runner) -- Main voice pipeline orchestrator.
+- [StreamSessionCoordinator](./voice/voice-session-runner) -- Stream (voice + future multimodal) session orchestrator. Renamed from `VoiceSessionRunner` 2026-04-21 — the old doc file is retained at the same URL for now, but the class and directory live at `humbl_core/lib/session/stream_session_coordinator.dart`.
 
 ### [Platform](./platform/platform-factory)
 
