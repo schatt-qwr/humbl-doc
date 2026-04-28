@@ -81,7 +81,7 @@ These are real gaps, grouped by type. See `memory/pending-design-items.md` for t
 ### Trailing work (implementation-only, no open decisions)
 
 - **LmScheduler rewrite** (`humbl_lm/lib/scheduling/lm_scheduler.dart` still references the old `ILmGateway` — rewrite on top of `BaseChatModel`)
-- **VoiceSessionRunner → StreamSessionCoordinator rename** (class + interface + directory + ~587 test lines)
+- **VoiceSessionRunner → StreamSessionCoordinator rename** — DONE (commit `7a5603214`)
 - **UserTier `'plus'` → `'premium'` residual cleanup** (check JSON / SQL for stringly-typed leftovers)
 - **Receipt verification** (`humbl_backend/.../verify-purchase.ts` always returns valid; 2 micro-agent handlers stubbed)
 - **Test backfill** — zero tests in: `mcp/`, `resilience/`, `services/`, `settings/`, `sync/`, `input/`, `voice_activity_detection/`

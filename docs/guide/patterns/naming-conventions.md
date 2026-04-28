@@ -32,7 +32,7 @@ Consistent naming rules across the codebase.
 
 | Type | Convention | Example |
 |------|-----------|---------|
-| Feature folders | `snake_case` | `voice_session/`, `speech_to_text/` |
+| Feature folders | `snake_case` | `session/`, `speech_to_text/` |
 | Platform subfolder | `snake_case` | `platform/wifi/`, `platform/bluetooth/` |
 | Per-platform impl | `platform_feature_type.dart` | `android_wifi_manager.dart` |
 

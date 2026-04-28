@@ -59,7 +59,7 @@ Per-module completion status for all packages. Framework packages (`packages/`) 
 | Embedding Gateway | `lib/memory/embedding_gateway.dart` | 80% | IEmbeddingProvider extends Embeddings (SP5). On-device + cloud fallback. |
 | Devices SDK | `lib/devices/` | 70% | DeviceRegistry, 4 built-in providers. Missing: BLE transport, recovery. |
 | BLE Commands | `lib/devices/ble/` | 40% | Interface defined, K900 protocol started. |
-| Voice Session | `lib/voice_session/` | 65% | `VoiceSessionRunner`, `RingBuffer`, `AudioStreamBuffer`, `MicSource`, AEC interface, streaming LLM-to-TTS integration (SP8b). Rename to `StreamSessionCoordinator` pending (see pending-design-items §2). |
+| Session | `lib/session/` | 65% | `StreamSessionCoordinator` (renamed from `VoiceSessionRunner`, commit `7a5603214`), `RingBuffer`, `AudioStreamBuffer`, `MicSource`, AEC interface, streaming LLM-to-TTS integration (SP8b). |
 | VAD/STT/TTS | `lib/voice_activity_detection/`, `speech_to_text/`, `text_to_speech/` | 55% | `SileroVadEngine`, `IVadEngine`, `IWakeWordEngine`; 5 STT providers (Android, iOS, WhisperApi, WhisperCpp + factory); 6 TTS providers (inc. Piper, ElevenLabs, OpenAI). Native binaries not bundled — wiring blocked on bundling plan. |
 | Input System | `lib/input/` | 85% | IInputSource, InputSourceRegistry, InputArbitrator. |
 | Resilience | `lib/resilience/` | 95% | CircuitBreaker, RetryPolicy, ResilientExecutor, Heartbeat. |

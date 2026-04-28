@@ -75,34 +75,25 @@ Safety features built into the engine:
 
 ## Graph Topology
 
-The pipeline has **7 nodes** connected in a directed graph:
+The pipeline has **4 nodes** (classify → route → execute → deliver):
 
 ```mermaid
 graph TD
-    CA[context_assembly] --> CL[classify]
-    CL --> RD[route_decision]
-    RD -->|tool_call| ET[execute_tool]
-    RD -->|follow_up| AU[ask_user]
-    RD -->|chat / direct| DL[deliver]
-    ET --> DL
-    AU --> DL
-    DL --> LC[loop_check]
-    LC -->|pending_steps| CL
-    LC -->|pending_tool_calls| ET
-    LC -->|else| END([END])
+    CL[classify] --> RT[route]
+    RT -->|tool_call| EX[execute]
+    RT -->|direct_response| DL[deliver]
+    EX --> DL
+    DL --> END([END])
 ```
 
 ### Node Responsibilities
 
 | Node | Purpose | Key Logic |
 |------|---------|-----------|
-| `context_assembly` | Assemble memory context + filter available tools | Queries T2 KV + T3 vectors, filters tools by tier/connectivity/state, builds `availableTools` list |
-| `classify` | Intent classification via LM Gateway | Tier 0 (pre-classified) -> Tier 2 (full LM). Sets `intent`, `confidence`, `activeToolName`, `toolParams` |
-| `route_decision` | Pick execution path from intent status | Maps `intentStatus` to `ExecutionPath`: fast, slmLoop, cloudLoop, cloudAlways |
-| `ask_user` | Generate follow-up question for user | Sets `followUpQuestion` and `outputText` |
-| `execute_tool` | Run the identified tool via ToolRegistry | Builds `ToolContext`, calls `tool.execute()`, sets `toolResult` |
+| `classify` | Intent classification via LM Gateway | Tier 0 (pre-classified) → Tier 2 (full LM). Sets `intent`, `confidence`, `activeToolName`, `toolParams` |
+| `route` | Pick execution path from intent status | Maps `intentStatus` to `ExecutionPath`: `tool_call` → execute, `direct_response` → deliver |
+| `execute` | Run the identified tool via ToolRegistry (delegates to framework `ToolNode`) | Builds `ToolContext`, calls `tool.execute()`, sets `toolResult` |
 | `deliver` | Format output + log to memory | Writes to ConversationStore, logs InteractionLog to T4 |
-| `loop_check` | Decide if pipeline should loop or terminate | Checks `pendingSteps` (multi-step) and `pendingToolCalls` (cloud tool chains) |
 
 ### Execution Paths
 
@@ -117,78 +108,11 @@ enum ExecutionPath {
 
 ## Multi-Step Patterns
 
-The pipeline supports two distinct multi-step patterns, both managed by `LoopCheckNode`:
+Multi-step retry logic is handled inside the `route` node's branching logic (via the `StateGraph` max-recursion limit and conditional edges). The graph enforces a maximum of 20 steps per run to prevent infinite loops. Complex cloud tool chains are handled by the cloud LM returning multiple tool calls within a single execute→deliver cycle.
 
-### Pattern 1: SLM Multi-Step (pendingSteps)
+## Pipeline State
 
-When the on-device SLM determines that a task requires multiple sequential tool calls (e.g., "check the weather and then set a reminder"), it populates `pendingSteps` with a list of remaining actions. After each tool execution and delivery, `LoopCheckNode` checks whether more steps remain. If so, it routes back to `classify` with the next step pre-loaded.
-
-```
-User: "Check the weather and set a timer for 10 minutes"
-  → classify: intent=tool_call, tool=weather_check, pendingSteps=[{tool: set_timer, params: {minutes: 10}}]
-  → execute_tool: weather_check → deliver
-  → loop_check: pendingSteps not empty → classify (with next step)
-  → classify: Tier 0 (pre-classified from pendingSteps) → execute_tool: set_timer → deliver
-  → loop_check: pendingSteps empty → END
-```
-
-### Pattern 2: Cloud Tool Chains (pendingToolCalls)
-
-When a cloud LLM handles a complex query, it may return multiple tool calls in a single response. The cloud response populates `pendingToolCalls`. After executing the first tool, `LoopCheckNode` routes directly to `execute_tool` (not back to classify -- the cloud already decided what to call).
-
-```
-User: "Find Italian restaurants nearby, pick the highest rated, and navigate there"
-  → classify: cloudRequired=true → route_decision: cloudLoop
-  → cloud_gateway: returns [search_restaurants, get_directions] as pendingToolCalls
-  → execute_tool: search_restaurants → deliver
-  → loop_check: pendingToolCalls not empty → execute_tool (next call)
-  → execute_tool: get_directions → deliver
-  → loop_check: empty → END
-```
-
-The distinction matters: `pendingSteps` loops through classify (the SLM re-evaluates each step), while `pendingToolCalls` skips classify (the cloud already planned the sequence).
-
-## PipelineState
-
-An immutable typed state object that flows through every node. Each node reads what it needs and returns a modified copy via `copyWith()`.
-
-The `_absent` sentinel pattern distinguishes "not provided" from "explicitly set to null":
-
-```dart
-const _absent = Object();
-
-class PipelineState {
-  final String? activeToolName;
-  // ...
-
-  PipelineState copyWith({
-    Object? activeToolName = _absent,
-    // ...
-  }) {
-    return PipelineState(
-      activeToolName: activeToolName == _absent
-          ? this.activeToolName
-          : activeToolName as String?,
-    );
-  }
-}
-```
-
-### Key State Fields
-
-| Category | Fields |
-|----------|--------|
-| Input | `inputText`, `inputModality` (voice/text/vision/gesture), `sessionId`, `runId` |
-| User & Device | `userId`, `tier` (free/standard/plus/ultimate), `device` (battery, network, thermal, glasses) |
-| Routing | `routingPolicy`, `routeDecision`, `intent`, `confidence`, `intentStatus` |
-| Memory | `memory` (MemoryContext), `conversationHistory`, `availableTools` |
-| Tool Execution | `activeToolName`, `toolParams`, `toolResult` |
-| Cloud | `cloudRequired`, `cloudMessages`, `cloudResponse`, `pendingToolCalls` |
-| Multi-step | `pendingSteps`, `kvSnapshot` |
-| Output | `outputText`, `outputModality`, `memoryWritten`, `journalLogged` |
-| Graph | `currentNode`, `error`, `statusMessage`, `iterationCount` |
-| Confirmation | `needsConfirmation`, `confirmationMessage`, `userConfirmed` |
-| Tracing | `traceId`, `startedAt`, `activeModelId`, `activeProviderId`, `tokensUsed` |
+Pipeline state is managed through `langchain_graph` channels (see the SP6 tip callout). `PipelineState` was deleted as part of the SP6 migration — state is now channel-based within the `StateGraph`. Each node reads from and writes to typed channels. The graph's superstep execution ensures state consistency across concurrent node runs.
 
 ## PipelineOrchestrator
 
@@ -319,5 +243,5 @@ The interrupt system provides three priority levels:
 | `humbl_core/lib/pipeline/pipeline_state.dart` | Immutable state + enums |
 | `humbl_core/lib/pipeline/pipeline_orchestrator.dart` | Pre-wired graph with all nodes |
 | `humbl_core/lib/pipeline/graph_node.dart` | Abstract `GraphNode` base |
-| `humbl_core/lib/pipeline/nodes/` | All 7 node implementations |
+| `humbl_core/lib/pipeline/nodes/` | All 4 node implementations |
 | `humbl_core/lib/pipeline/models/` | CancellationToken, PipelineInterrupt, PipelineCheckpoint |

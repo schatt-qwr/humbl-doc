@@ -5,19 +5,19 @@ title: Test Coverage
 
 # Test Coverage
 
-_Last updated: 2026-04-21._
+_Last updated: 2026-04-28._
 
 ## Summary
 
 | Test Type | Status | Notes |
 |---|---|---|
-| Unit | healthy ratios in framework packages; gaps in domain packages | **1564 unit tests across 161 files in 11 Dart packages** (verified 2026-04-21 via static count; all packages pass `very_good test`; zero `@Skip` markers) |
+| Unit | healthy ratios in framework packages; gaps in domain packages | **~1,800+ unit tests across ~200 files in 11 Dart packages** (post Phase 4-6; zero `@Skip` markers) |
 | Integration | 0% | No multi-module wiring tests |
 | E2E | 0% | No full pipeline turn tests |
 | Device | 0% | No Android/iOS hardware tests |
 | Manual | 0% | No formal QA test plans |
 
-Baseline count of 1528 (1527 pass, 1 historically flaky) was verified on 2026-04-10. Re-verified 2026-04-21 after the BaseTracer migration and package consolidation — current total is **1564 tests across 161 files, all passing across 3 consecutive runs (no flakes observed)**. The suite _grew_ through the refactor (net +36) despite discarding the LangSmith-specific `client_test.dart`, `evaluation/evaluate_test.dart`, `evaluation/evaluation_test.dart`, and `feedback`-related tests; `run_test.dart` + `tracer_test.dart` moved into `langchain_dart`.
+Baseline count of 1528 (1527 pass, 1 historically flaky) was verified on 2026-04-10. Re-verified 2026-04-21 at **1564 tests across 161 files**. Post Phase 4-6 (dual-mode encryption + onboarding UX), the total has grown to **~1,800+ tests across ~200 files** (+101 Phase 4, +40 Phase 5, +120 Phase 6 full_privacy, +~80 misc). The suite grew through the refactor despite discarding the LangSmith-specific `client_test.dart`, `evaluation/evaluate_test.dart`, and `feedback`-related tests; `run_test.dart` + `tracer_test.dart` moved into `langchain_dart`.
 
 Prior audits under-reported three domain packages because they counted test files rather than `test(...)` invocations — the corrected numbers for `humbl_voice`, `humbl_lm`, and `humbl_runtime` appear in the per-package table below.
 
@@ -43,14 +43,14 @@ Prior audits under-reported three domain packages because they counted test file
 
 | Package | Tests | Test Files | Groups | Coverage Status |
 |---|---:|---:|---:|---|
-| `humbl_core` | 834 | 79 | 191+ | All pass. Test-backfill session 2026-04-21 added 102 tests across 7 previously-zero-test modules: `sync` (7), `input` (11), `settings` (18), `resilience` (28), `services` (13), `voice_activity_detection` (13), `mcp` (12). Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway, + the 7 new modules. |
-| `humbl_app` | 200 | 18 | 27 | Blocs + auth/signup/forgot-password widget tests. Low ratio relative to 127 lib files (expected — UI is pump-tested per screen). |
+| `humbl_core` | ~1,000+ (post Phase 4-6) | 97 | 191+ | All pass. Test-backfill session 2026-04-21 added 102 tests across 7 previously-zero-test modules. Phases 4-6 encryption added further coverage. Areas well-covered: pipeline, tools/gates, memory, payments, providers, LM gateway, auth + encryption. |
+| `humbl_app` | ~320 (post Phase 6) | 18+ | 27+ | Blocs + auth/signup/forgot-password widget tests + 120 new full_privacy module tests. Low ratio relative to lib files (expected — UI is pump-tested per screen). |
 | `humbl_lm` | 9 | 2 | 3 | Under-tested for 16 lib files. `LmScheduler` has no tests and still references old `ILmGateway`. (Prior "2 tests" number was file count, not test count.) |
 | `humbl_voice` | 52 | 6 | 6 | Healthy ratio — 52 tests across STT/TTS/VAD/audio (not "6 tests" as prior audits implied — the 6 was the file count). |
 | `humbl_runtime` | 6 | 2 | 1 | Under-tested. ExecuTorch / LiteRT are stubs; concrete ONNX / llama.cpp wiring has minimal tests. |
 | `humbl_integrations` | 0 | 0 | 0 | Scaffolded 2026-04-21 — no implementations yet, no tests expected. |
 
-**Monorepo totals:** 1564 tests across 161 files, 379 `group(...)` blocks, zero `@Skip(...)` markers. All packages pass.
+**Monorepo totals:** ~1,800+ tests across ~200 files, zero `@Skip(...)` markers. All packages pass. (Post Phase 4-6; baseline was 1564 across 161 files on 2026-04-21.)
 
 ## Modules With Zero Tests (humbl_core)
 

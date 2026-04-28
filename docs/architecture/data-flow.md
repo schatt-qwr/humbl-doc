@@ -15,44 +15,32 @@ The most common path: user types a message, the pipeline classifies intent, exec
 sequenceDiagram
     participant User
     participant Agent as HumblAgent
-    participant CA as ContextAssemblyNode
     participant CL as ClassifyNode
-    participant RD as RouteDecisionNode
-    participant ET as ExecuteToolNode
+    participant RT as RouteNode
+    participant ET as ExecuteNode
     participant DL as DeliverNode
-    participant LC as LoopCheckNode
 
     User->>Agent: "Turn on WiFi"
-    Agent->>Agent: Create PipelineState(inputText, sessionId, userId, tier, device)
-
-    Agent->>CA: run(state)
-    CA->>CA: Load conversation history from ConversationStore
-    CA->>CA: Query IMemoryService for relevant T2/T3 context
-    CA->>CA: Filter availableTools by tier + connectivity + state
-    CA->>CA: Run prompt adapters (memory, tools, device, user profile)
-    CA-->>CL: state.copyWith(conversationHistory, memory, availableTools, adaptedPrompt)
+    Agent->>Agent: Create pipeline input (inputText, sessionId, userId, tier, device)
 
     CL->>CL: Tier 0: Check device input mapping (pre-classified?)
     CL->>CL: Tier 1: Keyword matching (fast, no LM)
     CL->>CL: Tier 2: ILmGateway.complete() (SLM classification)
-    CL-->>RD: state.copyWith(intent: tool_call, activeToolName: "wifi_toggle", toolParams: {enabled: true})
+    CL-->>RT: intent: tool_call, activeToolName: "wifi_toggle", toolParams: {enabled: true}
 
-    RD->>RD: Evaluate intent → ExecutionPath.fast
-    RD-->>ET: state.copyWith(routeDecision: fast)
+    RT->>RT: Evaluate intent → route: tool_call
+    RT-->>ET: routeDecision: tool_call
 
     ET->>ET: ToolRegistry.lookup("wifi_toggle")
     ET->>ET: PolicyGate → AccessGate → PermissionGate → validate → ResourceGate
     ET->>ET: Callback handlers fire: Policy, AccessControl, Permission, Quota, Logging
     ET->>ET: tool.execute(ctx, params)
-    ET-->>DL: state.copyWith(toolResult: {success: true, data: {enabled: true}})
+    ET-->>DL: toolResult: {success: true, data: {enabled: true}}
 
     DL->>DL: Format response text from toolResult
     DL->>DL: Write to ConversationStore
     DL->>DL: Write to IMemoryService (T4 interaction log)
-    DL-->>LC: state.copyWith(outputText: "WiFi has been turned on.")
-
-    LC->>LC: Check pendingSteps (empty) and pendingToolCalls (empty)
-    LC-->>Agent: Final state → END
+    DL-->>Agent: Final state → END
 
     Agent-->>User: "WiFi has been turned on."
 ```
@@ -103,12 +91,7 @@ After all gates pass, `tool.run(ctx, params)` is called. For `wifi_toggle`, this
 - Writes to `IMemoryService` interaction log (T4) for memory consolidation.
 - Logs the tool execution via `HumblLogger.tool()`.
 
-**Step 7: LoopCheckNode (~0ms).** Checks if there is more work to do:
-
-- `pendingSteps` -- are there remaining steps in a multi-step plan? (Empty for this single-tool call.)
-- `pendingToolCalls` -- did the cloud LM request additional tool calls? (N/A for local execution.)
-
-Both are empty, so the pipeline terminates with `END`. The final `PipelineState` flows back to `HumblAgent`, which emits it as an `AgentResult` on the `results` stream. The UI displays "WiFi has been turned on."
+**Step 5 (DeliverNode) continues:** After formatting and persisting the result, the pipeline terminates with `END`. The final state flows back to `HumblAgent`, which emits it as an `AgentResult` on the `results` stream. The UI displays "WiFi has been turned on."
 
 **Total latency (warm, Tier 1 match):** ~60-270ms. **Total latency (warm, Tier 2 SLM):** ~460-670ms.
 
@@ -138,7 +121,7 @@ sequenceDiagram
     participant Mic as Microphone
     participant VAD as IVadEngine
     participant STT as ISttProvider
-    participant VSR as VoiceSessionRunner
+    participant SSC as StreamSessionCoordinator
     participant Pipe as PipelineOrchestrator
     participant TTS as ITtsProvider
     participant Spk as Speaker
@@ -148,13 +131,13 @@ sequenceDiagram
     VAD-->>STT: Speech segment (with pre-roll buffer)
 
     STT->>STT: Transcribe audio → text
-    STT-->>VSR: "What is the weather today?"
+    STT-->>SSC: "What is the weather today?"
 
-    VSR->>Pipe: orchestrator.run(PipelineState(inputText, inputModality: voice))
-    Pipe->>Pipe: Full pipeline (context_assembly → classify → route → execute → deliver → loop_check)
-    Pipe-->>VSR: Final PipelineState(outputText: "It is 24 degrees and sunny.")
+    SSC->>Pipe: orchestrator.run(PipelineState(inputText, inputModality: voice))
+    Pipe->>Pipe: Full pipeline (classify → route → execute → deliver)
+    Pipe-->>SSC: Final PipelineState(outputText: "It is 24 degrees and sunny.")
 
-    VSR->>TTS: synthesize("It is 24 degrees and sunny.")
+    SSC->>TTS: synthesize("It is 24 degrees and sunny.")
     TTS->>TTS: Generate audio stream
     TTS-->>Spk: PCM audio frames
 
@@ -177,9 +160,9 @@ sequenceDiagram
 - **On-device Whisper (~500-1000ms):** Runs the Whisper model locally via ONNX runtime. No network required. Accuracy is good for clear speech.
 - **Cloud STT (~200-500ms):** Sends audio to a cloud provider (Google, Azure). Higher accuracy, especially for noisy environments and accented speech.
 
-The transcribed text ("What is the weather today?") is passed to `VoiceSessionRunner`.
+The transcribed text ("What is the weather today?") is passed to `StreamSessionCoordinator`.
 
-**Step 4: Pipeline Execution (~400-700ms).** `VoiceSessionRunner` creates a `PipelineInput` with `inputModality: voice` and feeds it through the standard pipeline. The voice modality is noted in the pipeline state so that `DeliverNode` knows to prepare output suitable for TTS (shorter sentences, no markdown, no URLs).
+**Step 4: Pipeline Execution (~400-700ms).** `StreamSessionCoordinator` creates a `PipelineInput` with `inputModality: voice` and feeds it through the standard pipeline. The voice modality is noted in the pipeline state so that `DeliverNode` knows to prepare output suitable for TTS (shorter sentences, no markdown, no URLs).
 
 **Step 5: TTS Synthesis (~100-500ms).** The pipeline's output text ("It is 24 degrees and sunny.") is passed to `ITtsProvider.synthesize()`. The TTS provider generates PCM audio frames streamed to the speaker. Streaming synthesis means playback starts before the full utterance is generated.
 
@@ -291,17 +274,16 @@ When the on-device SLM cannot handle a query (low confidence, complex reasoning,
 ```mermaid
 sequenceDiagram
     participant CL as ClassifyNode
-    participant RD as RouteDecisionNode
-    participant ET as ExecuteToolNode
+    participant RT as RouteNode
+    participant ET as ExecuteNode
     participant GW as ILmGateway (cloud)
     participant DL as DeliverNode
-    participant LC as LoopCheckNode
 
     CL->>CL: SLM classifies → confidence too low or task too complex
-    CL-->>RD: state.copyWith(cloudRequired: true)
+    CL-->>RT: cloudRequired: true
 
-    RD->>RD: Evaluate → ExecutionPath.cloudLoop
-    RD-->>ET: state.copyWith(routeDecision: cloudLoop)
+    RT->>RT: Evaluate → ExecutionPath.cloudLoop
+    RT-->>ET: routeDecision: cloudLoop
 
     Note over ET,GW: Cloud provider selected by LmGatewayPolicy<br/>(tier filter → cooldown → health → context window → sort)
 
@@ -311,15 +293,12 @@ sequenceDiagram
 
     alt Cloud returns tool_call
         ET->>ET: Execute tool locally
-        ET-->>DL: state.copyWith(toolResult, pendingToolCalls)
-        DL-->>LC: state with output
-        LC->>LC: pendingToolCalls not empty → loop back
-        LC-->>ET: Continue with next tool call
+        ET-->>DL: toolResult
+        DL->>DL: Format and persist → END (route node re-enters if more tool calls pending)
     else Cloud returns chat response
-        ET-->>DL: state.copyWith(cloudResponse: "Here is the analysis...")
+        ET-->>DL: cloudResponse: "Here is the analysis..."
         DL->>DL: Format and persist
-        DL-->>LC: state.copyWith(outputText)
-        LC-->>LC: No pending work → END
+        DL-->>DL: END
     end
 ```
 
@@ -388,29 +367,23 @@ For complex tasks requiring multiple tool invocations, the pipeline loops throug
 ```mermaid
 sequenceDiagram
     participant CL as ClassifyNode
-    participant RD as RouteDecisionNode
-    participant ET as ExecuteToolNode
+    participant RT as RouteNode
+    participant ET as ExecuteNode
     participant DL as DeliverNode
-    participant LC as LoopCheckNode
 
-    Note over CL,LC: Step 1: "Find nearby coffee shops and navigate to the closest one"
+    Note over CL,DL: Step 1: "Find nearby coffee shops and navigate to the closest one"
 
-    CL-->>RD: intent: tool_call, tool: "find_nearby", pendingSteps: ["navigate"]
-    RD-->>ET: ExecutionPath.fast
+    CL-->>RT: intent: tool_call, tool: "find_nearby", pendingSteps: ["navigate"]
+    RT-->>ET: ExecutionPath.fast
     ET-->>DL: toolResult: {places: [{name: "Blue Bottle", distance: "0.3km"}]}
-    DL-->>LC: partial output
+    DL->>DL: partial output — route node re-enters for next pending step
 
-    LC->>LC: pendingSteps not empty → loop to classify
-    LC-->>CL: Continue
+    Note over CL,DL: Step 2: Navigate to result
 
-    Note over CL,LC: Step 2: Navigate to result
-
-    CL-->>RD: intent: tool_call, tool: "navigate", params: {destination: "Blue Bottle"}
-    RD-->>ET: ExecutionPath.fast
+    CL-->>RT: intent: tool_call, tool: "navigate", params: {destination: "Blue Bottle"}
+    RT-->>ET: ExecutionPath.fast
     ET-->>DL: toolResult: {success: true, route: "..."}
-    DL-->>LC: final output
-
-    LC->>LC: pendingSteps empty, pendingToolCalls empty → END
+    DL-->>DL: final output → END
 ```
 
 ### Step-by-Step Narrative
@@ -432,12 +405,12 @@ The `pendingSteps` field is a plan -- an ordered list of remaining steps that re
 
 **Step 2: First Tool Execution (~200-500ms).** `find_nearby` executes via the standard five-gate path. The result (a list of nearby coffee shops) is stored in the pipeline state's `toolResult` field.
 
-**Step 3: Loop Check → Continue.** `LoopCheckNode` sees `pendingSteps` is not empty. It resolves `$result` placeholders in the next step's parameters (replacing `$result[0].name` with "Blue Bottle") and loops back to `ClassifyNode`. On this second pass, `ClassifyNode` has the pre-resolved step and skips SLM classification (Tier 0 pass-through, since the tool and params are already known).
+**Step 3: Route Node Re-entry → Continue.** The route node's branching logic detects `pendingSteps` is not empty. It resolves `$result` placeholders in the next step's parameters (replacing `$result[0].name` with "Blue Bottle") and routes back to execute. On this second pass, `ClassifyNode` has the pre-resolved step and skips SLM classification (Tier 0 pass-through, since the tool and params are already known).
 
 **Step 4: Second Tool Execution (~100-300ms).** `navigate` executes with the resolved destination. The result is a route to Blue Bottle Coffee.
 
-**Step 5: Loop Check → END.** `pendingSteps` is now empty and `pendingToolCalls` is empty. The pipeline terminates. `DeliverNode` assembles the combined output from both steps: "I found 5 coffee shops nearby. The closest is Blue Bottle Coffee, 0.3km away. I've started navigation."
+**Step 5: END.** `pendingSteps` is now empty. The pipeline terminates. `DeliverNode` assembles the combined output from both steps: "I found 5 coffee shops nearby. The closest is Blue Bottle Coffee, 0.3km away. I've started navigation."
 
 **Total latency (two local tools, SLM classification):** ~700-1200ms.
 
-The `StateGraph` enforces a maximum of 20 steps per run to prevent infinite loops. The `LoopCheckNode` increments a step counter and terminates with an error if the limit is reached. This protects against runaway plans where the SLM generates circular step dependencies.
+The `StateGraph` enforces a maximum of 20 steps per run to prevent infinite loops. The route node increments a step counter and terminates with an error if the limit is reached. This protects against runaway plans where the SLM generates circular step dependencies.

@@ -197,7 +197,7 @@ All inter-component communication uses broadcast `StreamController`s. This decou
 | `HumblAgent.results` | Pipeline completion | UI, voice TTS, logging |
 | `SettingsService.onSettingsChanged` | Settings write | Tools, UI, pipeline |
 | `ServiceEventBus.events` | Any service | Any service |
-| `VoiceSessionRunner.transcriptions` | STT provider | Agent dispatch |
+| `StreamSessionCoordinator.transcriptions` | STT provider | Agent dispatch |
 | `HardwareResourceManager.events` | Lease acquire/release | Logging, diagnostics |
 
 ### runStream for UI Progress

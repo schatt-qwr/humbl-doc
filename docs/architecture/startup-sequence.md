@@ -308,7 +308,7 @@ final orchestrator = PipelineOrchestrator(
 
 **Produces:** `PipelineOrchestrator`
 **Dependencies:** Steps 2, 3, 5, 10, 12, 13
-**Notes:** Builds the `StateGraph` with 7 nodes: `context_assembly -> classify -> route_decision -> (execute_tool | ask_user) -> deliver -> loop_check`. Supports concurrent `run()` and `runStream()` calls.
+**Notes:** Builds the 4-node coordinator (`buildHumblPipeline()`): classify → route → execute → deliver. Supports concurrent `run()` and `runStream()` calls.
 
 ---
 
@@ -368,14 +368,14 @@ final agent = HumblAgent(
 ### Step 19: VoiceSession (mobile only)
 
 ```dart
-VoiceSessionRunner? voiceSession;
+StreamSessionCoordinator? voiceSession;
 if (Platform.isAndroid || Platform.isIOS) {
   final sttProvider = SttProviderFactory.create(const SttProviderConfig());
   final ttsProvider = TtsProviderFactory.create(const TtsProviderConfig());
   final vadEngine = SileroVadEngine();
   final audioPlayer = PlatformAudioPlayer();
 
-  voiceSession = VoiceSessionRunner(
+  voiceSession = StreamSessionCoordinator(
     toolRegistry: toolRegistry,
     vad: vadEngine, stt: sttProvider, tts: ttsProvider,
     audioPlayer: audioPlayer,
@@ -387,7 +387,7 @@ if (Platform.isAndroid || Platform.isIOS) {
 }
 ```
 
-**Produces:** `VoiceSessionRunner?` (null on desktop)
+**Produces:** `StreamSessionCoordinator?` (null on desktop)
 **Dependencies:** Steps 10, 14
 **Notes:** Only initialized on Android and iOS. Wires VAD (Silero), STT (platform-specific), TTS (platform-specific), and the pipeline together. The `onPipelineRequest` callback bridges voice transcription to pipeline execution.
 

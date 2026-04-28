@@ -41,7 +41,7 @@ These are Dart ports of industry-standard Python AI frameworks. They have **no F
 
 | Module | Key Classes | Description |
 |--------|------------|-------------|
-| `providers` | `BaseProvider`, `OpenAIProvider`, `AnthropicProvider`, `GeminiProvider`, `AzureOpenAIProvider`, `BedrockProvider`, `VertexAIProvider`, `CohereProvider`, `HuggingFaceProvider`, `OllamaProvider`, `CustomOpenAIProvider` | 11 provider adapters |
+| `providers` | `BaseProvider`, `OpenAIProvider`, `AnthropicProvider`, `GeminiProvider`, `AzureOpenAIProvider`, `BedrockProvider`, `VertexAIProvider`, `CohereProvider`, `HuggingFaceProvider`, `TogetherAIProvider`, `MistralProvider`, `OllamaProvider`, `CustomOpenAIProvider` | 12 provider adapters |
 | `router` | `Router`, `Deployment`, `CooldownManager` | Multi-provider routing with 5 strategies |
 | `cost` | `CostCalculator`, `ModelPrices`, `SpendLog`, `BudgetManager` | Cost tracking, spend logging, and budget enforcement |
 | `token_counter` | `TokenCounter` | Per-provider token counting |
@@ -75,9 +75,9 @@ The export count reflects the number of public symbols in the `humbl_core.dart` 
 | **tools** | `tools/` | `HumblTool` base, `ToolRegistry`, 16 domain files, 6 connector tools, policy, schema export, context filter | 17 |
 | **pipeline** | `pipeline/` | `StateGraph` engine, `PipelineOrchestrator`, 9 node types, 8 prompt adapters, cancellation, checkpoints, interrupts | 26 |
 | **memory** | `memory/` | T2 KV store, T3 vector similarity, T4 interaction log, `ConversationStore`, embedding gateway, migration service | 16 |
-| **lm_gateway** | `lm_gateway/` | `ILmGateway`, `HumblLmGateway`, 11 connectors, provider registry, routing policies, cooldown, quota, capability, training, marketplace | 40+ |
+| **lm_gateway** | `lm_gateway/` | `ILmGateway`, `HumblLmGateway`, 12 connectors, provider registry, routing policies, cooldown, quota, capability, training, marketplace | 40+ |
 | **devices** | `devices/` | `IPeripheralProvider`, `IConnectedDevice`, 4 built-in providers, BLE transport, K900 protocol, head gesture recognizer, hardware device manager | 16 |
-| **voice_session** | `voice_session/` | `VoiceSessionRunner`, `VoiceSessionController`, audio I/O, `AudioStreamBuffer`, `RingBuffer`, `MicSource`, platform audio player/source | 8 |
+| **session** | `session/` | `StreamSessionCoordinator`, `IStreamSessionCoordinator`, audio I/O, `AudioStreamBuffer`, `RingBuffer`, `MicSource`, platform audio player/source | 8 |
 | **services** | `services/` | `HumblAgent`, `ServiceRegistry`, `ServiceEventBus`, `AgentSession`, `IServiceHost` | 6 |
 | **resources** | `resources/` | `HardwareResourceManager`, `ResourceLease`, `ExecutionHandle`, `IResourceStreamProvider` | 5 |
 | **permissions** | `permissions/` | `AccessControl`, `ToolStateManager`, `IPermissionService`, mobile/desktop implementations, resource-permission map | 7 |
@@ -138,7 +138,7 @@ The `platform/` module is the largest, with 21 manager interfaces and 60+ concre
 
 ## LM Gateway Connectors
 
-The `lm_gateway/connectors/` module provides 11 connector implementations:
+The `lm_gateway/connectors/` module provides 12 connector implementations:
 
 | Connector | Provider Type | Protocol |
 |-----------|--------------|----------|

@@ -162,7 +162,7 @@ packages/
   langchain_graph/      LangGraph state machine — StateGraph, channels, checkpoints
 
 humbl_core/             Flutter plugin — pipeline, tools, memory, platform managers, security
-humbl_app/              Flutter app — 34 screens, 20-step startup, BLoC state management
+humbl_app/              Flutter app — 51 screens (40 base + 11 full_privacy), 20-step startup, BLoC state management
 humbl_backend/          Supabase Edge Functions + Cloud Run worker + 28 agent configs
 humbl_lm/               LLM connector implementations (planned)
 humbl_voice/            Voice provider implementations (planned)
@@ -178,7 +178,7 @@ humbl-doc/              Documentation — this site
 | `litellm_dart` | Dart | **Active** — 113 tests | LiteLLM — Router, 12 providers (incl. Gemini/Azure/Bedrock/Vertex/Cohere/HuggingFace/Together/Mistral), embedding + image APIs, budget manager, acompletion pipeline, Redis cache |
 | `langchain_graph` | Dart | **Active** — 128 tests | LangGraph — StateGraph, superstep execution, Send fan-out, fan-in barriers, subgraph composition, MessageGraph, checkpointing (SQLite + Postgres), 6 prebuilt agents |
 | `humbl_core` | Dart | **Active** — 31 modules, 343 exports | All interfaces, pipeline, tools, memory, security, platform managers, devices SDK |
-| `humbl_app` | Dart/Flutter | **Active** — 34 screens implemented | Startup sequence (20-step wiring), BLoC state management, AuthBloc, AgentInbox, all screens |
+| `humbl_app` | Dart/Flutter | **Active** — 51 screens implemented (40 base + 11 full_privacy) | Startup sequence (20-step wiring), BLoC state management, AuthBloc, AgentInbox, all screens |
 | `humbl_lm` | Dart | **Scaffolded** | LLM provider implementations — concrete connectors for OpenAI, Anthropic, Gemini, etc. |
 | `humbl_voice` | Dart | **Scaffolded** | STT/TTS/VAD provider implementations — Whisper.cpp, Piper, Silero, platform native |
 | `humbl_runtime` | C++/Rust/Dart | **Scaffolded** | Native inference runtimes — llama.cpp FFI, ONNX Runtime, ExecuTorch, LiteRT, Whisper.cpp |
@@ -192,9 +192,9 @@ The project followed a **foundation-first** strategy: all interfaces, pipeline l
 
 1. **humbl_core is the product.** The pipeline, tools, memory, and LM gateway are the AI brain. UI is a presentation layer that attaches to running services. The architecture is **service-first, not UI-first** — services run independently, UI attaches and detaches as an optional layer.
 
-2. **humbl_app depends on everything.** The 20-step startup wiring in `main.dart` creates every service, connects every interface, and launches the app. BLoC state management wraps `humbl_core` interfaces — `ChatBloc` subscribes to `HumblAgent.results`, `VoiceBloc` wraps `VoiceSessionRunner`, `SettingsBloc` wraps `SettingsService`.
+2. **humbl_app depends on everything.** The 20-step startup wiring in `main.dart` creates every service, connects every interface, and launches the app. BLoC state management wraps `humbl_core` interfaces — `ChatBloc` subscribes to `HumblAgent.results`, `VoiceBloc` wraps `StreamSessionCoordinator`, `SettingsBloc` wraps `SettingsService`.
 
-**All 34 screens are now implemented** with zero stubs remaining:
+**All 51 screens are now implemented** (40 base + 11 full_privacy) with zero stubs remaining:
 
 - `main.dart` — Full 20-step startup wiring (all services created and connected)
 - `blocs/auth/` — AuthBloc wired to Supabase (signIn/signUp/resetPassword/signOut + auth stream listener)
@@ -234,11 +234,11 @@ graph TB
     end
 
     subgraph "humbl_core (Application Layer)"
-        PIPE["Pipeline<br/>extends StateGraph + 7 nodes"]
+        PIPE["Pipeline<br/>4-node coordinator (StateGraph migration in progress)"]
         TOOL["ToolRegistry<br/>70+ tools extending BaseTool"]
         PERM["Permissions<br/>AccessControl + ToolStateManager"]
         PLAT["Platform Managers<br/>21 interfaces, per-platform impls"]
-        LMG["LM Gateway<br/>wraps Router + 11 connectors"]
+        LMG["LM Gateway<br/>wraps Router + 12 connectors"]
         MEM["Memory<br/>extends BaseMemory + T2-T4"]
         DEV["Devices SDK<br/>4 providers, BLE transport"]
         VOICE["Voice I/O<br/>VAD + STT + TTS"]
@@ -283,7 +283,7 @@ The diagram above shows dependency arrows, but the narrative is more important t
 
 4. **Memory provides context to the pipeline via prompt adapters.** `ContextAssemblyNode` calls `IMemoryService.assembleContext()` which queries T2 key-value pairs (user preferences like "preferred units: metric") and T3 semantic vectors (past conversations about similar topics). The assembled context is injected into the LM prompt within a token budget so the SLM has relevant context without exceeding its context window.
 
-5. **Voice I/O feeds the pipeline.** `VoiceSessionRunner` orchestrates VAD, STT, and TTS. When the user speaks, the transcript becomes `PipelineState.inputText` and the pipeline runs a full turn. The response text is sent to TTS for playback. Barge-in (user speaks during TTS) stops playback and starts a new pipeline turn.
+5. **Voice I/O feeds the pipeline.** `StreamSessionCoordinator` orchestrates VAD, STT, and TTS. When the user speaks, the transcript becomes `PipelineState.inputText` and the pipeline runs a full turn. The response text is sent to TTS for playback. Barge-in (user speaks during TTS) stops playback and starts a new pipeline turn.
 
 6. **Devices SDK filters available tools.** When smart glasses connect, `PeripheralCompatibilityChecker` filters the tool list based on device capabilities. If the connected glasses lack a camera, camera tools are excluded from the LM's tool schema -- the model cannot even attempt to invoke them.
 
@@ -298,7 +298,7 @@ The diagram above shows dependency arrows, but the narrative is more important t
 | **LM Gateway** | `HumblChatModel`, `ConnectorRegistry`, litellm `Router` | Single LM entry point (`HumblChatModel extends BaseChatModel`). Routes requests via litellm Router (12 providers, 5 strategies) to the best provider (on-device, local network, BYOK, app cloud). |
 | **Memory** | `SqliteMemoryService`, `SqliteVecStore`, `ConversationStore` | T2 key-value, T3 vector similarity (ONNX embeddings), T4 interaction log. |
 | **Devices SDK** | `DeviceRegistry`, `IPeripheralProvider`, `IConnectedDevice` | Provider-based abstraction for smart glasses. Built-in: Even G1, Frame, Humbl Glasses, Simulated. |
-| **Voice I/O** | `VoiceSessionRunner`, `IVadEngine`, `ISttProvider`, `ITtsProvider` | Full voice pipeline: wake word, VAD, speech-to-text, pipeline dispatch, text-to-speech. |
+| **Voice I/O** | `StreamSessionCoordinator`, `IVadEngine`, `ISttProvider`, `ITtsProvider` | Full voice pipeline: wake word, VAD, speech-to-text, pipeline dispatch, text-to-speech. |
 
 ## Tech Stack
 
@@ -330,7 +330,7 @@ The project spans 4 framework packages plus `humbl_core`:
 | LM provider adapters | 12 |
 | Prebuilt agent patterns | 6 |
 | Cloud agent types | 28 |
-| App screens | 34 |
+| App screens | 51 (40 base + 11 full_privacy) |
 | Callback handlers | 6 |
 | Native plugins (Kotlin) | 10 |
 | Native plugins (Swift) | 10 |

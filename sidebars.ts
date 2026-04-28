@@ -20,6 +20,7 @@ const sidebars: SidebarsConfig = {
             'architecture/subsystems/pipeline',
             'architecture/subsystems/tool-system',
             'architecture/subsystems/security',
+            'architecture/subsystems/privacy-encryption',
             'architecture/subsystems/platform-abstraction',
             'architecture/subsystems/memory',
             'architecture/subsystems/lm-gateway',

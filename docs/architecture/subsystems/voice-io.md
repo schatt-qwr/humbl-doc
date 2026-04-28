@@ -86,12 +86,12 @@ graph LR
     BI -->|stop TTS,<br/>restart STT| STT
 ```
 
-## VoiceSessionRunner
+## StreamSessionCoordinator
 
 The main orchestrator that wires all voice components together:
 
 ```dart
-class VoiceSessionRunner implements IVoiceSessionController {
+class StreamSessionCoordinator implements IStreamSessionCoordinator {
   final ToolRegistry _toolRegistry;
   final IVadEngine _vad;
   final ISttProvider _stt;
@@ -130,17 +130,17 @@ stateDiagram-v2
 
 ```dart
 // Start the voice session
-await voiceSession.start();
+await streamSession.start();
 
 // Set the pipeline callback
-voiceSession.onPipelineRequest = (transcript) async {
+streamSession.onPipelineRequest = (transcript) async {
   final state = PipelineState(inputText: transcript, ...);
   final result = await orchestrator.run(state);
   return result.outputText ?? '';
 };
 
 // Listen for turn events
-voiceSession.turnEvents.listen((event) {
+streamSession.turnEvents.listen((event) {
   switch (event) {
     case SpeechDetected():       // VAD detected speech
     case TranscriptionComplete(:final text):  // STT finished
@@ -153,7 +153,7 @@ voiceSession.turnEvents.listen((event) {
 });
 
 // Stop when done
-await voiceSession.stop();
+await streamSession.stop();
 ```
 
 ### Mic Source Selection
@@ -229,7 +229,7 @@ During TTS playback, the VAD needs to distinguish the speaker output from actual
 3. **Entering cooldown** after TTS stops, before returning to normal detection sensitivity
 
 ```dart
-// VoiceSessionRunner wires TTS audio to VAD
+// StreamSessionCoordinator wires TTS audio to VAD
 final ttsStream = _tts.synthesizeStream(text);
 final vadRefController = StreamController<AudioChunk>.broadcast();
 _vad.onTtsStarted(vadRefController.stream);
@@ -416,15 +416,15 @@ These wrap platform-specific APIs:
 
 | Path | Purpose |
 |------|---------|
-| `humbl_core/lib/voice_session/voice_session_runner.dart` | Main orchestrator |
-| `humbl_core/lib/voice_session/voice_session_controller.dart` | IVoiceSessionController interface |
-| `humbl_core/lib/voice_session/voice_config.dart` | Session configuration |
-| `humbl_core/lib/voice_session/mic_source.dart` | MicSource model |
-| `humbl_core/lib/voice_session/ring_buffer.dart` | Pre-speech circular buffer |
-| `humbl_core/lib/voice_session/audio_stream_buffer.dart` | Unbounded BLE bridging buffer |
-| `humbl_core/lib/voice_session/audio_io.dart` | IAudioSource, IAudioPlayer |
-| `humbl_core/lib/voice_session/platform_audio_source.dart` | Cross-platform mic capture |
-| `humbl_core/lib/voice_session/platform_audio_player.dart` | Cross-platform audio playback |
+| `humbl_core/lib/session/stream_session_coordinator.dart` | Main orchestrator |
+| `humbl_core/lib/session/i_stream_session_coordinator.dart` | IStreamSessionCoordinator interface |
+| `humbl_core/lib/session/voice_config.dart` | Session configuration |
+| `humbl_core/lib/session/audio/mic_source.dart` | MicSource model |
+| `humbl_core/lib/session/audio/ring_buffer.dart` | Pre-speech circular buffer |
+| `humbl_core/lib/session/audio/audio_stream_buffer.dart` | Unbounded BLE bridging buffer |
+| `humbl_core/lib/session/audio/audio_io.dart` | IAudioSource, IAudioPlayer |
+| `humbl_core/lib/session/audio/platform_audio_source.dart` | Cross-platform mic capture |
+| `humbl_core/lib/session/audio/platform_audio_player.dart` | Cross-platform audio playback |
 | `humbl_core/lib/voice_activity_detection/i_vad_engine.dart` | VAD interface |
 | `humbl_core/lib/voice_activity_detection/vad_config.dart` | VAD configuration |
 | `humbl_core/lib/voice_activity_detection/aec/software_aec.dart` | Software echo cancellation |

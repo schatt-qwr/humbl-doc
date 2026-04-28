@@ -24,7 +24,7 @@ Full category-by-category breakdown of implementation status. Each row shows ite
 | Cloud Agent Backend | 6 | 1 | 1 | End-to-end round-trip testing (designed, not deployed). |
 | Resource Management | 4 | 1 | 1 | Buffer sharing between concurrent stream tools |
 | Background Agents | 5 | 1 | 0 | Cloud round-trip testing needed |
-| Voice I/O | Interfaces + streaming | 0 | 4 concrete | VoiceSessionRunner + streaming LLM-to-TTS works; Whisper.cpp/Piper/platform STT/TTS implementations exist but native binaries not bundled. |
+| Voice I/O | Interfaces + streaming | 0 | 4 concrete | StreamSessionCoordinator + streaming LLM-to-TTS works; Whisper.cpp/Piper/platform STT/TTS implementations exist but native binaries not bundled. |
 | App Frontend | 40 screens | 0 | 0 | All screens implemented; UI-SP1/2/3 complete. |
 | App Settings | Done | 0 | 0 | SettingsService + screens implemented |
 | Tracing / Observability Port | 6 | 0 | 0 | BaseTracer/Run/RunType/Console/InMemory migrated to `langchain_dart` 2026-04-21; LangfuseTracer wired. langsmith_dart deleted. |
@@ -107,8 +107,8 @@ Full category-by-category breakdown of implementation status. Each row shows ite
 - IVadEngine interface (TTS-aware, source latching)
 - ISttProvider interface (barge-in support)
 - ITtsProvider interface (streaming)
-- VoiceSessionRunner (full pipeline: AEC, RingBuffer, VAD, STT, pipeline dispatch, TTS)
-- VoiceSessionRunner.onPipelineStream -- streaming pipeline callback
+- StreamSessionCoordinator (full pipeline: AEC, RingBuffer, VAD, STT, pipeline dispatch, TTS)
+- StreamSessionCoordinator.onPipelineStream -- streaming pipeline callback
 - LLM token-to-TTS streaming (tokens pipe to `TTS.synthesizeFromStream()` in real-time)
 - VoiceProviderRouter with tier gating
 - AudioStreamBuffer, MicSource, RingBuffer

@@ -52,7 +52,7 @@ Development priorities grouped by state. See [Implementation Status](./overview)
 **Status:** Complete.
 - `StreamEvent`, `CompiledStateGraph.streamEvents()` with modes (values / updates / messages / custom).
 - `HumblChatModel.stream()` yields `AIMessageChunk`s via `streamWriter`.
-- `VoiceSessionRunner.onPipelineStream` — LLM tokens pipe to `TTS.synthesizeFromStream()` in real-time.
+- `StreamSessionCoordinator.onPipelineStream` — LLM tokens pipe to `TTS.synthesizeFromStream()` in real-time.
 - `VoiceProviderRouter` with tier gating; `IProviderCostModel`, `UsageRecord`, universal quota.
 
 ### SP10 — Agent Refactor
@@ -76,6 +76,12 @@ Development priorities grouped by state. See [Implementation Status](./overview)
 **Status:** Complete.
 - Moved `BaseTracer`, `Run`, `RunType`, `RunEvent`, `InMemoryTracer`, `ConsoleTracer` from `langsmith_dart` to `langchain_dart/lib/src/tracers/` — matches upstream Python `langchain_core.tracers`.
 - Deleted `langsmith_dart` package entirely. LangSmith-specific code (Client, feedback, evaluation) discarded. Humbl uses Langfuse.
+
+### VoiceSessionRunner → StreamSessionCoordinator Rename
+**Status:** Complete (commit `7a5603214`).
+- `VoiceSessionRunner` → `StreamSessionCoordinator`
+- `IVoiceSessionController` → `IStreamSessionCoordinator`
+- Directory: `lib/voice_session/` → `lib/session/` (audio subfiles in `session/audio/`)
 
 ### Package Consolidation (2026-04-21)
 **Status:** Complete.
@@ -102,7 +108,6 @@ Development priorities grouped by state. See [Implementation Status](./overview)
 | Area | Description | Blocker |
 |---|---|---|
 | LmScheduler rewrite | `humbl_lm/lib/scheduling/lm_scheduler.dart` still references old `ILmGateway`. Rewrite to wrap `BaseChatModel`. | None — contained |
-| VoiceSessionRunner → StreamSessionCoordinator | Class + interface + directory + ~587 test lines | None — pure refactor |
 | MCP offline / local-network routing | Replace `requiresCloud: bool` with three connectivity predicates; filter by device state. | Design pending decisions |
 | INR pricing tables in QuotaManager | Encode FREE / STANDARD / PLUS / ULTIMATE tiers, per-category caps, top-ups, FX config | Design pending |
 | Receipt verification | Real verification in `humbl_backend/.../verify-purchase.ts`; complete 2 stubbed micro-agent handlers | None |
@@ -170,7 +175,7 @@ Development priorities grouped by state. See [Implementation Status](./overview)
 [IN PROGRESS] Native library bundling ── [PARTIAL] SP9 VTT ── [PARTIAL] BLE connect
          │
          v
-[QUEUED] LmScheduler rewrite ── [QUEUED] VoiceSessionRunner rename
+[QUEUED] LmScheduler rewrite
          │
          v
 [DESIGNED] SP12 Cloud Agent Backend ── [DESIGNED] SP9 Local Networking

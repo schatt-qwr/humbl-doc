@@ -52,7 +52,7 @@ class WeatherCheckTool extends HumblTool {
 
   @override
   Set<UserTier> get availableTiers =>
-      {UserTier.standard, UserTier.plus, UserTier.ultimate};
+      {UserTier.standard, UserTier.premium, UserTier.ultimate};
 
   @override
   AccessLevel get declaredAccessLevel => AccessLevel.trusted;
